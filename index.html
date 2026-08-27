@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WordtoSomeone</title>
+</head>
+<body>
+    <h1>Welcome to WordtoSomeone</h1>
+    <p>This is a simple web application that allows you to send words of encouragement to someone.</p>
+    <form action="/send" method="POST">
+        <label for="recipient">Recipient:</label>
+        <input type="text" id="recipient" name="recipient" required><br><br>
+        <label for="message">Message:</label><br>
+        <textarea id="message" name="message" rows="4" cols="50" required></textarea><br><br>
+        <input type="submit" value="Send">
+    </form>
+</body>
+</html>
