@@ -339,22 +339,37 @@ i am not your first choice but i will still be kind
 ## 关于真正的风景
 
 我住这里，海边，风景还行
+<br>
 <img src="map.png" width=600>
 <br>
 这是海边
+<br>
 <img src="shore 1.jpg" width=300>
+<br>
 <img src="shore 2.jpg" width=300>
+<br>
 <img src="shore 3.jpg" width=300>
+<br>
+<br>
 
 去年还去看雪山了（Banff Park，还算有名吧）
+<br>
 <img src="mount 1.jpg" width=300>
+<br>
 <img src="mount 2.jpg" width=300>
+<br>
 <img src="mount 3.jpg" width=300>
+<br>
 <img src="mount 4.jpg" width=300>
+<br>
 <img src="town 1.jpg" width=300>
+<br>
 <img src="town 2.jpg" width=300>
 
+<br>
+
 这是我学校里
+<br>
 <img src="sakura.jpg" width=300>
 
 有时候真希望你也能亲身看到
