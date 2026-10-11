@@ -1,3 +1,4 @@
+```html
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -6,17 +7,87 @@
   <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1" />
   <meta name="description" content="Description">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0">
+
+  <!-- 保留你原来的 Docsify Vue 主题 -->
   <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/docsify@4/lib/themes/vue.css">
+
+  <!-- 新增：批注栏样式 -->
+  <link rel="stylesheet" href="./annotation.css">
 </head>
+
 <body>
+  <!-- 保留 Docsify 原有的 Markdown 渲染容器 -->
   <div id="app"></div>
+
+  <!-- 新增：右侧批注栏 -->
+  <aside id="annotation-sidebar" aria-label="Text annotations">
+    <div class="annotation-header">
+      <h3>Comments</h3>
+      <p>Select text in the article to leave a comment.</p>
+    </div>
+
+    <div id="annotation-list"></div>
+  </aside>
+
+  <!-- 新增：批注输入框 -->
+  <dialog id="annotation-dialog">
+    <form id="annotation-form">
+      <h3>Add a comment</h3>
+
+      <label for="annotation-quote">Selected text</label>
+      <blockquote id="annotation-quote"></blockquote>
+
+      <label for="annotation-nickname">Nickname</label>
+      <input
+        id="annotation-nickname"
+        maxlength="40"
+        placeholder="Guest"
+      >
+
+      <label for="annotation-body">Comment</label>
+      <textarea
+        id="annotation-body"
+        maxlength="2000"
+        rows="5"
+        required
+      ></textarea>
+
+      <p id="annotation-status" aria-live="polite"></p>
+
+      <div class="annotation-actions">
+        <button type="button" id="annotation-cancel">Cancel</button>
+        <button type="submit" id="annotation-submit">Submit</button>
+      </div>
+    </form>
+  </dialog>
+
   <script>
     window.$docsify = {
       name: '',
-      repo: ''
-    }
+      repo: '',
+
+      // 新增：Docsify 加载完 Markdown 页面后，
+      // 让批注系统重新计算文字位置。
+      plugins: [
+        function (hook) {
+          hook.doneEach(function () {
+            if (window.annotationSystem) {
+              window.annotationSystem.refresh();
+            }
+          });
+        }
+      ]
+    };
   </script>
-  <!-- Docsify v4 -->
+
+  <!-- 保留 Docsify -->
   <script src="//cdn.jsdelivr.net/npm/docsify@4"></script>
+
+  <!-- 新增：Supabase 客户端 -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <!-- 新增：批注逻辑 -->
+  <script src="./annotation.js"></script>
 </body>
 </html>
+```
