@@ -33,15 +33,13 @@
     <form id="annotation-form">
       <h3>Add a comment</h3>
 
-      <label for="annotation-quote">Selected text</label>
       <blockquote id="annotation-quote"></blockquote>
 
-      <label for="annotation-nickname">Nickname</label>
-      <input
-        id="annotation-nickname"
-        maxlength="40"
-        placeholder="Guest"
-      >
+      <label for="annotation-nickname">Name</label>
+      <select id="annotation-nickname" required>
+      <option value="Lkh">Lkh</option>
+      <option value="FernandoZ">FernandoZ</option>
+      </select>
 
       <label for="annotation-body">Comment</label>
       <textarea
