@@ -438,7 +438,7 @@
       threadToggle.setAttribute("aria-expanded", String(opening));
       if (opening && unreadCount) await markRepliesRead(replies.filter((reply) => reply.user_id !== currentUserId));
     });
-    thread.append(threadToggle, replyList);
+    thread.appendChild(replyList);
     const replyButton = document.createElement("button");
     replyButton.type = "button";
     replyButton.className = "annotation-reply-button";
@@ -447,7 +447,10 @@
       event.stopPropagation();
       openReplyComposer(annotation, thread);
     });
-    card.append(thread, replyButton);
+    const controls = document.createElement("div");
+    controls.className = "annotation-card-controls";
+    controls.append(threadToggle, replyButton);
+    card.append(controls, thread);
 
     // 只显示当前用户自己评论的删除按钮
     if (currentUserId && annotation.user_id === currentUserId) {
@@ -651,9 +654,12 @@
   // ============================================================
 
  function positionCards(root) {
-  const cards = Array.from(
-    list.querySelectorAll(".annotation-card")
-  );
+  const cards = Array.from(list.querySelectorAll(".annotation-card"));
+
+  // Each pass starts clean so cards move between the visible area and the
+  // collapsed off-screen groups as the reader scrolls the article.
+  list.querySelectorAll(".annotation-offscreen-group").forEach((group) => group.remove());
+  cards.forEach((card) => list.appendChild(card));
 
   // Mobile: comments appear in normal document flow.
   if (isMobile()) {
@@ -673,14 +679,16 @@
   // Desktop: sort comments by their positions in the article.
   const listRect = list.getBoundingClientRect();
   const gap = 12;
+  const above = [];
+  const below = [];
+  const placements = [];
 
-  const placements = cards
-    .map((card) => {
+  cards.forEach((card) => {
       const annotation = currentAnnotations.find(
         (item) => item.id === card.dataset.annotationId
       );
 
-      if (!annotation) return null;
+      if (!annotation) { below.push(card); return; }
 
       const range = offsetToRange(
         root,
@@ -688,40 +696,59 @@
         annotation.end_offset
       );
 
-      if (!range) return null;
+      if (!range) { below.push(card); return; }
 
       const rangeRect = range.getBoundingClientRect();
 
       if (!rangeRect.height && !rangeRect.width) {
-        return null;
+        below.push(card);
+        return;
       }
+
+      if (rangeRect.bottom < 0) { above.push(card); return; }
+      if (rangeRect.top > window.innerHeight) { below.push(card); return; }
 
       // Desired position relative to the comments list.
       const targetTop =
         rangeRect.top - listRect.top + list.scrollTop;
 
-      return {
+      placements.push({
         card,
         targetTop: Math.max(0, targetTop)
-      };
-    })
-    .filter(Boolean)
-    // Important: sort by article position, NOT creation time.
-    .sort((a, b) => a.targetTop - b.targetTop);
-
-  // Reset positioning for cards that could not be matched to text.
-  const validCards = new Set(
-    placements.map((item) => item.card)
-  );
-
-  cards.forEach((card) => {
-    if (!validCards.has(card)) {
-      card.style.position = "absolute";
-      card.style.top = "0px";
-      card.style.left = "0";
-      card.style.right = "0";
-    }
+      });
   });
+
+  placements.sort((a, b) => a.targetTop - b.targetTop);
+
+  const makeOffscreenGroup = (label, items, className) => {
+    if (!items.length) return null;
+    const group = document.createElement("details");
+    group.className = `annotation-offscreen-group ${className}`;
+    const summary = document.createElement("summary");
+    summary.textContent = `${label} (${items.length})`;
+    group.appendChild(summary);
+    group.addEventListener("toggle", scheduleReposition);
+    items.forEach((card) => {
+      card.style.position = "relative";
+      card.style.top = "auto";
+      card.style.left = "auto";
+      card.style.right = "auto";
+      card.style.margin = "8px 0";
+      group.appendChild(card);
+    });
+    return group;
+  };
+  const aboveGroup = makeOffscreenGroup("Comments above this area", above, "is-above");
+  const belowGroup = makeOffscreenGroup("Other comments", below, "is-below");
+  if (aboveGroup) {
+    aboveGroup.style.position = "absolute";
+    aboveGroup.style.top = "0";
+    aboveGroup.style.left = "0";
+    aboveGroup.style.right = "0";
+    list.prepend(aboveGroup);
+  }
+  if (belowGroup) list.appendChild(belowGroup);
+  const topInset = aboveGroup ? aboveGroup.offsetHeight + gap : 0;
 
   // Place cards in article order and prevent overlap.
   let previousBottom = 0;
@@ -735,7 +762,7 @@
 
     // Measure after setting the positioning mode.
     const finalTop = Math.max(
-      targetTop,
+      targetTop + topInset,
       previousBottom === 0 ? 0 : previousBottom + gap
     );
 
@@ -745,7 +772,10 @@
   });
 
   // Reserve enough space for all positioned cards.
-  list.style.minHeight = `${previousBottom}px`;
+  if (belowGroup) belowGroup.style.position = "absolute";
+  if (belowGroup) belowGroup.style.top = `${previousBottom + gap}px`;
+  if (belowGroup) { belowGroup.style.left = "0"; belowGroup.style.right = "0"; }
+  list.style.minHeight = `${previousBottom + (belowGroup ? belowGroup.offsetHeight + gap : 0)}px`;
 }
 
   // ============================================================
@@ -836,6 +866,16 @@
     scheduleReposition();
   }
 
+  function setSidebarWidth(width, save = true) {
+    if (isMobile()) return;
+    const nextWidth = clampSidebarWidth(width);
+    document.documentElement.style.setProperty("--annotation-width", `${nextWidth}px`);
+    if (save) {
+      try { localStorage.setItem(SIDEBAR_WIDTH_KEY, String(nextWidth)); } catch { /* Storage may be disabled. */ }
+    }
+    scheduleReposition();
+  }
+
   function setupSidebarResize() {
     let initialWidth = MIN_SIDEBAR_WIDTH;
     try {
@@ -844,14 +884,52 @@
     } catch { /* Use the default width when storage is unavailable. */ }
     document.documentElement.style.setProperty("--annotation-width", `${clampSidebarWidth(initialWidth)}px`);
 
+    let handle = sidebar.querySelector(".annotation-sidebar-resizer");
+    if (!handle) {
+      handle = document.createElement("div");
+      handle.className = "annotation-sidebar-resizer";
+      handle.setAttribute("role", "separator");
+      handle.setAttribute("aria-orientation", "vertical");
+      handle.setAttribute("aria-label", "Resize comments sidebar");
+      handle.setAttribute("tabindex", "0");
+      sidebar.prepend(handle);
+
+      let dragStartX = 0;
+      let dragStartWidth = 0;
+      handle.addEventListener("pointerdown", (event) => {
+        if (isMobile() || event.button !== 0) return;
+        event.preventDefault();
+        dragStartX = event.clientX;
+        dragStartWidth = sidebar.getBoundingClientRect().width;
+        handle.setPointerCapture(event.pointerId);
+        sidebar.classList.add("annotation-sidebar-resizing");
+      });
+      handle.addEventListener("pointermove", (event) => {
+        if (!handle.hasPointerCapture(event.pointerId)) return;
+        // The sidebar is fixed to the right edge: dragging its left edge left expands it.
+        setSidebarWidth(dragStartWidth + dragStartX - event.clientX, false);
+      });
+      const finishResize = (event) => {
+        if (handle.hasPointerCapture(event.pointerId)) handle.releasePointerCapture(event.pointerId);
+        sidebar.classList.remove("annotation-sidebar-resizing");
+        syncSidebarWidth(true);
+      };
+      handle.addEventListener("pointerup", finishResize);
+      handle.addEventListener("pointercancel", finishResize);
+      handle.addEventListener("keydown", (event) => {
+        if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+        event.preventDefault();
+        const direction = event.key === "ArrowLeft" ? 1 : -1;
+        setSidebarWidth(sidebar.getBoundingClientRect().width + direction * (event.shiftKey ? 50 : 20));
+      });
+    }
+
     if (typeof ResizeObserver === "function") {
       sidebarResizeObserver = new ResizeObserver(() => {
         if (!isMobile()) syncSidebarWidth(true);
       });
       sidebarResizeObserver.observe(sidebar);
     }
-    sidebar.addEventListener("pointerup", () => syncSidebarWidth(true));
-    sidebar.addEventListener("mouseup", () => syncSidebarWidth(true));
   }
 
   // ============================================================

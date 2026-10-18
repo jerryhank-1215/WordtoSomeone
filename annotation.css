@@ -642,6 +642,35 @@
 #annotation-sidebar .annotation-reply-actions .annotation-reply-submit:hover { background: #339f70; }
 #annotation-sidebar .annotation-reply-actions button:disabled { opacity: .6; cursor: wait; }
 
+#annotation-sidebar .annotation-card-controls {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+#annotation-sidebar .annotation-card-controls .annotation-reply-button { margin-top: 0; }
+#annotation-sidebar .annotation-offscreen-group {
+  padding: 7px 9px;
+  border: 1px solid #e2e8e5;
+  border-radius: 8px;
+  background: #f6f9f7;
+  z-index: 2;
+}
+#annotation-sidebar .annotation-offscreen-group > summary {
+  color: #52616b;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+#annotation-sidebar .annotation-offscreen-group .annotation-card {
+  position: relative;
+  inset: auto;
+  margin: 8px 0;
+  padding: 9px;
+  box-shadow: none;
+}
+
 @media screen and (max-width: 900px) {
   #annotation-sidebar .annotation-reply-form { padding: 10px; }
   #annotation-sidebar .annotation-reply-actions button { min-height: 40px; }
@@ -659,9 +688,46 @@
     width: clamp(320px, var(--annotation-width, 320px), 1000px) !important;
     min-width: 320px !important;
     max-width: min(1000px, calc(100vw - 24px)) !important;
-    resize: horizontal !important;
+    resize: none !important;
     overflow: auto !important;
     box-sizing: border-box !important;
+  }
+
+  #annotation-sidebar .annotation-sidebar-resizer {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 20;
+    width: 12px;
+    cursor: ew-resize;
+    touch-action: none;
+    user-select: none;
+  }
+
+  #annotation-sidebar .annotation-sidebar-resizer::after {
+    position: absolute;
+    top: 50%;
+    left: 4px;
+    width: 3px;
+    height: 46px;
+    border-radius: 3px;
+    background: #cbd5d0;
+    content: "";
+    transform: translateY(-50%);
+    transition: background-color .15s ease, height .15s ease;
+  }
+
+  #annotation-sidebar .annotation-sidebar-resizer:hover::after,
+  #annotation-sidebar.annotation-sidebar-resizing .annotation-sidebar-resizer::after {
+    height: 64px;
+    background: #42b983;
+  }
+
+  #annotation-sidebar.annotation-sidebar-resizing,
+  #annotation-sidebar.annotation-sidebar-resizing * {
+    user-select: none !important;
+    cursor: ew-resize !important;
   }
 }
 
@@ -673,4 +739,5 @@
     max-width: 100% !important;
     resize: none !important;
   }
+  #annotation-sidebar .annotation-sidebar-resizer { display: none !important; }
 }
