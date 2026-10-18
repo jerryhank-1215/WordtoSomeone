@@ -57,6 +57,8 @@
   let refreshTimer = null;
   let repositionTimer = null;
   let sidebarResizeObserver = null;
+  let topReplyNotice = null;
+  let bottomReplyNotice = null;
 
   const MOBILE_QUERY = "(max-width: 900px)";
   const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
@@ -361,19 +363,91 @@
     currentReplies = currentAnnotations.filter((item) => item.parent_id);
     currentAnnotations = currentAnnotations.filter((item) => !item.parent_id);
 
-    if (currentUserId && currentReplies.length) {
+    const allNotificationIds = [...currentAnnotations, ...currentReplies].map((item) => item.id);
+    if (currentUserId && allNotificationIds.length) {
       const { data: reads, error: readError } = await supabaseClient
         .from("annotation_reply_reads")
         .select("reply_id")
         .eq("user_id", currentUserId)
-        .in("reply_id", currentReplies.map((reply) => reply.id));
+        .in("reply_id", allNotificationIds);
       if (readError) throw readError;
       readReplyIds = new Set((reads || []).map((row) => row.reply_id));
+
+      // On first use, treat comments that already exist as history. Future
+      // top-level comments will then appear as unread notifications.
+      const hasCommentReadBaseline = currentAnnotations.some((item) => readReplyIds.has(item.id));
+      if (currentAnnotations.length && !hasCommentReadBaseline) {
+        await markRepliesRead(currentAnnotations);
+      }
     } else {
       readReplyIds = new Set();
     }
 
     return currentAnnotations;
+  }
+
+  function setupReplyNotices() {
+    if (topReplyNotice && bottomReplyNotice) return;
+    const makeNotice = (placement) => {
+      const notice = document.createElement("button");
+      notice.type = "button";
+      notice.className = `annotation-reply-notice annotation-reply-notice-${placement}`;
+      notice.hidden = true;
+      notice.addEventListener("click", () => {
+        const unreadComments = currentAnnotations.filter((comment) =>
+          comment.user_id !== currentUserId && !readReplyIds.has(comment.id)
+        );
+        const unreadReplies = currentReplies.filter((reply) => {
+          const parent = currentAnnotations.find((item) => item.id === reply.parent_id);
+          return parent?.user_id === currentUserId && reply.user_id !== currentUserId && !readReplyIds.has(reply.id);
+        });
+        const firstUnread = [...unreadComments, ...unreadReplies]
+          .sort((a, b) => new Date(a.created_at) - new Date(b.created_at))[0];
+        if (!firstUnread) return;
+        const isReply = Boolean(firstUnread.parent_id);
+        const parent = isReply
+          ? currentAnnotations.find((item) => item.id === firstUnread.parent_id)
+          : firstUnread;
+        const card = list.querySelector(`.annotation-card[data-annotation-id="${CSS.escape(parent.id)}"]`);
+        if (!card) return;
+        scrollToAnnotation(parent);
+        if (isReply) {
+          const toggle = card.querySelector(".annotation-replies-toggle");
+          const replyList = card.querySelector(".annotation-reply-list");
+          if (replyList?.hidden) {
+            replyList.hidden = false;
+            toggle?.setAttribute("aria-expanded", "true");
+            scheduleReposition();
+          }
+          markRepliesRead(unreadReplies.filter((reply) => reply.parent_id === parent.id));
+        } else {
+          markRepliesRead([firstUnread]);
+        }
+      });
+      return notice;
+    };
+    topReplyNotice = makeNotice("top");
+    bottomReplyNotice = makeNotice("bottom");
+    sidebar.prepend(topReplyNotice);
+    sidebar.appendChild(bottomReplyNotice);
+  }
+
+  function updateReplyNotices() {
+    const unreadComments = currentAnnotations.filter((comment) =>
+      comment.user_id !== currentUserId && !readReplyIds.has(comment.id)
+    ).length;
+    const unreadReplies = currentReplies.filter((reply) => {
+      const parent = currentAnnotations.find((item) => item.id === reply.parent_id);
+      return parent?.user_id === currentUserId && reply.user_id !== currentUserId && !readReplyIds.has(reply.id);
+    }).length;
+    const unreadCount = unreadComments + unreadReplies;
+    [topReplyNotice, bottomReplyNotice].forEach((notice) => {
+      if (!notice) return;
+      notice.hidden = unreadCount === 0;
+      notice.textContent = `${unreadComments} new ${unreadComments === 1 ? "comment" : "comments"} · ${unreadReplies} new ${unreadReplies === 1 ? "reply" : "replies"} — click to view`;
+      notice.setAttribute("aria-label", `${unreadComments} unread comments and ${unreadReplies} unread replies. Click to view the first one.`);
+    });
+    sidebar.classList.toggle("annotation-has-unread-replies", unreadCount > 0);
   }
 
   // ============================================================
@@ -436,6 +510,7 @@
       const opening = replyList.hidden;
       replyList.hidden = !opening;
       threadToggle.setAttribute("aria-expanded", String(opening));
+      scheduleReposition();
       if (opening && unreadCount) await markRepliesRead(replies.filter((reply) => reply.user_id !== currentUserId));
     });
     thread.appendChild(replyList);
@@ -501,6 +576,7 @@
       remove.type = "button";
       remove.className = "annotation-delete";
       remove.textContent = "Delete";
+      remove.setAttribute("aria-label", "Delete your reply");
       remove.addEventListener("click", (event) => { event.stopPropagation(); deleteAnnotation(reply.id); });
       item.appendChild(remove);
     }
@@ -514,7 +590,10 @@
     const { error } = await supabaseClient.from("annotation_reply_reads").upsert(rows, { onConflict: "reply_id,user_id", ignoreDuplicates: true });
     if (error) { console.error("[Annotations] 标记回复已读失败：", error); return; }
     unread.forEach((reply) => readReplyIds.add(reply.id));
-    renderAnnotations();
+    const parentId = unread[0]?.parent_id;
+    const parentCard = parentId && list.querySelector(`.annotation-card[data-annotation-id="${CSS.escape(parentId)}"]`);
+    parentCard?.querySelector(".annotation-unread-dot")?.remove();
+    updateReplyNotices();
     scheduleReposition();
   }
 
@@ -563,11 +642,12 @@
     actions.className = "annotation-reply-actions";
     const cancel = document.createElement("button");
     cancel.type = "button"; cancel.className = "annotation-reply-cancel"; cancel.textContent = "Cancel";
-    cancel.addEventListener("click", () => replyForm.remove());
+    cancel.addEventListener("click", () => { replyForm.remove(); scheduleReposition(); });
     const submit = document.createElement("button");
     submit.type = "submit"; submit.className = "annotation-reply-submit"; submit.textContent = "Post reply";
     actions.append(cancel, submit);
     replyForm.append(identity, input, file, actions); thread.appendChild(replyForm);
+    scheduleReposition();
     replyForm.addEventListener("submit", async (event) => {
       event.preventDefault(); submit.disabled = true;
       try { await submitAnnotation({ parent, body: input.value.trim(), file: file.files?.[0], nickname: nicknameSelect.value }); await refresh(); }
@@ -672,6 +752,7 @@
   // collapsed off-screen groups as the reader scrolls the article.
   list.querySelectorAll(".annotation-offscreen-group").forEach((group) => group.remove());
   cards.forEach((card) => list.appendChild(card));
+  cards.forEach((card) => { card.style.display = ""; });
 
   // Mobile: comments appear in normal document flow.
   if (isMobile()) {
@@ -751,7 +832,9 @@
     return group;
   };
   const aboveGroup = makeOffscreenGroup("Comments above this area", above, "is-above");
-  const belowGroup = makeOffscreenGroup("Other comments", below, "is-below");
+  // Below-viewport comments wait for their anchors to enter view. They are
+  // restored on the next scroll pass instead of being piled into a footer.
+  below.forEach((card) => { card.style.display = "none"; });
   if (aboveGroup) {
     aboveGroup.style.position = "absolute";
     aboveGroup.style.top = "0";
@@ -759,7 +842,6 @@
     aboveGroup.style.right = "0";
     list.prepend(aboveGroup);
   }
-  if (belowGroup) list.appendChild(belowGroup);
   const topInset = aboveGroup ? aboveGroup.offsetHeight + gap : 0;
 
   // Place cards in article order and prevent overlap.
@@ -784,10 +866,7 @@
   });
 
   // Reserve enough space for all positioned cards.
-  if (belowGroup) belowGroup.style.position = "absolute";
-  if (belowGroup) belowGroup.style.top = `${previousBottom + gap}px`;
-  if (belowGroup) { belowGroup.style.left = "0"; belowGroup.style.right = "0"; }
-  list.style.minHeight = `${previousBottom + (belowGroup ? belowGroup.offsetHeight + gap : 0)}px`;
+  list.style.minHeight = `${previousBottom}px`;
 }
 
   // ============================================================
@@ -991,7 +1070,7 @@
   // ============================================================
 
   async function deleteAnnotation(annotationId) {
-    const annotation = currentAnnotations.find(
+    const annotation = [...currentAnnotations, ...currentReplies].find(
       (item) => item.id === annotationId
     );
 
@@ -1279,6 +1358,7 @@
 
       renderAnnotations();
       applyHighlights();
+      updateReplyNotices();
 
       requestAnimationFrame(() => {
         const currentRoot = getArticleRoot();
@@ -1312,6 +1392,7 @@
 
   function initializeAnnotationLayout() {
     setupSidebarResize();
+    setupReplyNotices();
     updateAnnotationLayout();
     setupCommentsToggle();
   }
