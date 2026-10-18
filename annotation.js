@@ -599,7 +599,10 @@
 
   function openReplyComposer(parent, thread) {
     const existing = thread.querySelector(".annotation-reply-form");
-    if (existing) { existing.querySelector("textarea")?.focus(); return; }
+    if (existing) {
+      if (!isMobile()) existing.querySelector("textarea")?.focus();
+      return;
+    }
     const replyForm = document.createElement("form");
     replyForm.className = "annotation-reply-form";
     const identity = document.createElement("div");
@@ -633,7 +636,8 @@
     nicknameLabel.appendChild(nicknameSelect);
     identity.appendChild(nicknameLabel);
     const input = document.createElement("textarea");
-    input.required = true; input.maxLength = 5000; input.placeholder = "Write a reply";
+    input.required = true; input.maxLength = 5000;
+    input.placeholder = isMobile() ? "Tap here to write a reply" : "Write a reply";
     input.setAttribute("aria-label", "Reply text");
     const file = document.createElement("input");
     file.type = "file"; file.accept = "image/*"; file.setAttribute("aria-label", "Attach a photo");
@@ -654,7 +658,10 @@
       catch (error) { console.error("[Annotations] 回复失败：", error); alert("Could not post reply. Please check your connection and permissions."); }
       finally { submit.disabled = false; }
     });
-    input.focus();
+    // Avoid programmatic autofocus on mobile: opening the on-screen keyboard
+    // can resize the visual viewport and immediately revoke this focus. Let
+    // the user's direct tap on the textarea open and retain the keyboard.
+    if (!isMobile()) input.focus();
   }
 
   async function uploadImage(file) {
