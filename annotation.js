@@ -597,7 +597,19 @@
       start_offset: parent.start_offset, end_offset: parent.end_offset, nickname: nickname || getNickname(), body,
       user_id: currentUserId, parent_id: parent.id, image_path
     } : { ...anchor, nickname: getNickname(), body, user_id: currentUserId, image_path };
-    const { error } = await supabaseClient.from("annotations").insert(values);
+    const requiredFields = parent
+      ? ["page_path", "selected_text", "nickname", "body", "user_id", "parent_id"]
+      : ["page_path", "selected_text", "nickname", "body", "user_id", "start_offset", "end_offset"];
+    const missingFields = requiredFields.filter((field) => values[field] === undefined || values[field] === null);
+    if (missingFields.length) {
+      throw new Error(`Annotation payload is missing required fields: ${missingFields.join(", ")}`);
+    }
+    const payload = [values];
+    const serializedPayload = JSON.stringify(payload);
+    if (!serializedPayload || serializedPayload === "[]") {
+      throw new Error("Annotation payload is empty; nothing was sent to Supabase.");
+    }
+    const { error } = await supabaseClient.from("annotations").insert(payload);
     if (error) throw error;
   }
 
