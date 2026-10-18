@@ -748,15 +748,12 @@
  function positionCards(root) {
   const cards = Array.from(list.querySelectorAll(".annotation-card"));
 
-  // Each pass starts clean so cards move between the visible area and the
-  // collapsed off-screen groups as the reader scrolls the article.
-  list.querySelectorAll(".annotation-offscreen-group").forEach((group) => group.remove());
-  cards.forEach((card) => list.appendChild(card));
-  cards.forEach((card) => { card.style.display = ""; });
-
   // Mobile: comments appear in normal document flow.
+  // Do not detach/reinsert cards here: doing so blurs focused textareas and
+  // makes mobile keyboards close immediately after opening a reply composer.
   if (isMobile()) {
     cards.forEach((card) => {
+      card.style.display = "";
       card.style.position = "relative";
       card.style.top = "auto";
       card.style.bottom = "auto";
@@ -768,6 +765,14 @@
     list.style.minHeight = "0";
     return;
   }
+
+  // Restore only cards parked inside the collapsed off-screen groups. Normal
+  // cards stay in place so opening a reply form never loses keyboard focus.
+  const offscreenGroups = Array.from(list.querySelectorAll(".annotation-offscreen-group"));
+  const parkedCards = offscreenGroups.flatMap((group) => Array.from(group.querySelectorAll(".annotation-card")));
+  offscreenGroups.forEach((group) => group.remove());
+  parkedCards.forEach((card) => list.appendChild(card));
+  cards.forEach((card) => { card.style.display = ""; });
 
   // Desktop: sort comments by their positions in the article.
   const listRect = list.getBoundingClientRect();
