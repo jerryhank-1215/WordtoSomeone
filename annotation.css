@@ -246,28 +246,33 @@
     box-sizing: border-box;
   }
 
+  /* comment区域可伸缩*/
   #annotation-sidebar {
-    position: fixed !important;
-
-    top: 0 !important;
-    right: 0 !important;
-    bottom: 0 !important;
-
-    width: 320px !important;
-    height: 100vh !important;
-
-    margin: 0 !important;
-    padding: 20px !important;
-
+    width: clamp(320px, var(--annotation-sidebar-width, 360px), 1000px);
+    min-width: 320px;
+    max-width: min(1000px, calc(100vw - 24px));
+    resize: horizontal;
+    overflow: auto;
     box-sizing: border-box;
-
-    overflow-x: hidden !important;
-    overflow-y: auto !important;
-
-    background: #fff;
-    border-left: 1px solid #ddd;
-
-    z-index: 1000;
+  }
+  #annotation-sidebar .annotation-replies { margin-top: .65rem; }
+  #annotation-sidebar .annotation-replies-toggle,
+  #annotation-sidebar .annotation-reply-button { cursor: pointer; }
+  #annotation-sidebar .annotation-unread-dot {
+    display: inline-block; width: .58rem; height: .58rem; margin-left: .45rem;
+    border-radius: 50%; background: #d22; vertical-align: middle;
+  }
+  #annotation-sidebar .annotation-reply-list { padding: .45rem 0 .15rem .75rem; border-left: 2px solid #ddd; }
+  #annotation-sidebar .annotation-reply { margin: .5rem 0; padding: .6rem; border-radius: .35rem; background: rgba(127,127,127,.08); }
+  #annotation-sidebar .annotation-reply p { white-space: pre-wrap; overflow-wrap: anywhere; margin: .35rem 0; }
+  #annotation-sidebar .annotation-reply time { display: block; font-size: .78em; opacity: .7; }
+  #annotation-sidebar .annotation-attachment,
+  #annotation-sidebar .annotation-reply img { display: block; max-width: 100%; max-height: 360px; object-fit: contain; margin-top: .5rem; }
+  #annotation-sidebar .annotation-reply-form { display: grid; gap: .4rem; margin-top: .5rem; }
+  #annotation-sidebar .annotation-reply-form textarea { min-height: 4.5rem; resize: vertical; }
+  #annotation-sidebar .annotation-reply-form input[type="file"] { max-width: 100%; }
+  @media (max-width: 900px) {
+    #annotation-sidebar { width: 100%; min-width: 0; max-width: 100%; resize: none; }
   }
 
   #annotation-sidebar .annotation-header {
@@ -475,3 +480,197 @@
   }
 }
 
+
+/* ==========================================
+   回复区：独立昵称选择、输入框与操作按钮
+   ========================================== */
+#annotation-sidebar .annotation-replies {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid #eceff2;
+}
+
+#annotation-sidebar .annotation-replies-toggle,
+#annotation-sidebar .annotation-reply-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 34px;
+  padding: 6px 10px;
+  border: 1px solid #dfe5e9;
+  border-radius: 7px;
+  background: #fff;
+  color: #34495e;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background-color .15s ease, border-color .15s ease;
+}
+
+#annotation-sidebar .annotation-replies-toggle:hover,
+#annotation-sidebar .annotation-reply-button:hover {
+  background: #f3faf7;
+  border-color: #42b983;
+}
+
+#annotation-sidebar .annotation-reply-button { margin-top: 8px; }
+
+#annotation-sidebar .annotation-unread-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #d92d20;
+}
+
+#annotation-sidebar .annotation-reply-list {
+  margin-top: 8px;
+  padding: 2px 0 2px 12px;
+  border-left: 2px solid #dceee6;
+}
+
+#annotation-sidebar .annotation-reply {
+  margin: 8px 0;
+  padding: 10px 12px;
+  border: 1px solid #e8edf0;
+  border-radius: 9px;
+  background: #fff;
+  box-shadow: 0 2px 7px rgba(30, 50, 60, .04);
+}
+
+#annotation-sidebar .annotation-reply p {
+  margin: 6px 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+#annotation-sidebar .annotation-reply time {
+  display: block;
+  color: #84909a;
+  font-size: 11px;
+}
+
+#annotation-sidebar .annotation-reply img,
+#annotation-sidebar .annotation-attachment {
+  display: block;
+  max-width: 100%;
+  max-height: 320px;
+  margin-top: 8px;
+  border-radius: 7px;
+  object-fit: contain;
+}
+
+#annotation-sidebar .annotation-reply-form {
+  display: grid;
+  gap: 10px;
+  margin: 10px 0 4px;
+  padding: 12px;
+  border: 1px solid #dfe8e3;
+  border-radius: 10px;
+  background: #f8fbf9;
+}
+
+#annotation-sidebar .annotation-reply-identity { display: grid; gap: 5px; }
+
+#annotation-sidebar .annotation-reply-label {
+  display: grid;
+  gap: 5px;
+  color: #52616b;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+#annotation-sidebar .annotation-reply-nickname,
+#annotation-sidebar .annotation-reply-form textarea,
+#annotation-sidebar .annotation-reply-photo {
+  width: 100%;
+  box-sizing: border-box;
+  font: inherit;
+}
+
+#annotation-sidebar .annotation-reply-nickname {
+  min-height: 38px;
+  padding: 7px 9px;
+  border: 1px solid #d5ded9;
+  border-radius: 7px;
+  background: #fff;
+  color: #34495e;
+}
+
+#annotation-sidebar .annotation-reply-form textarea {
+  min-height: 86px;
+  padding: 10px;
+  border: 1px solid #d5ded9;
+  border-radius: 8px;
+  background: #fff;
+  color: #34495e;
+  resize: vertical;
+}
+
+#annotation-sidebar .annotation-reply-nickname:focus,
+#annotation-sidebar .annotation-reply-form textarea:focus {
+  outline: 2px solid rgba(66, 185, 131, .2);
+  border-color: #42b983;
+}
+
+#annotation-sidebar .annotation-reply-photo { color: #64727c; font-size: 12px; }
+
+#annotation-sidebar .annotation-reply-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+#annotation-sidebar .annotation-reply-actions button {
+  min-height: 36px;
+  padding: 7px 12px;
+  border: 1px solid #d7e0db;
+  border-radius: 7px;
+  background: #fff;
+  color: #34495e;
+  font: inherit;
+  cursor: pointer;
+}
+
+#annotation-sidebar .annotation-reply-actions .annotation-reply-submit {
+  border-color: #35a875;
+  background: #42b983;
+  color: #fff;
+  font-weight: 600;
+}
+
+#annotation-sidebar .annotation-reply-actions .annotation-reply-submit:hover { background: #339f70; }
+#annotation-sidebar .annotation-reply-actions button:disabled { opacity: .6; cursor: wait; }
+
+@media screen and (max-width: 900px) {
+  #annotation-sidebar .annotation-reply-form { padding: 10px; }
+  #annotation-sidebar .annotation-reply-actions button { min-height: 40px; }
+}
+
+/* 修复桌面端侧栏遮挡正文，并让拖动宽度同步推开正文。 */
+@media screen and (min-width: 901px) {
+  body > main > section.content {
+    right: var(--annotation-width, 320px) !important;
+    width: auto !important;
+  }
+
+  #annotation-sidebar {
+    right: 0 !important;
+    width: clamp(320px, var(--annotation-width, 320px), 1000px) !important;
+    min-width: 320px !important;
+    max-width: min(1000px, calc(100vw - 24px)) !important;
+    resize: horizontal !important;
+    overflow: auto !important;
+    box-sizing: border-box !important;
+  }
+}
+
+@media screen and (max-width: 900px) {
+  body > main > section.content { right: auto !important; }
+  #annotation-sidebar {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    resize: none !important;
+  }
+}

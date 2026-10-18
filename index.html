@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -33,7 +34,8 @@
     <form id="annotation-form">
       <h3>Add a comment</h3>
 
-      <blockquote id="annotation-quote"></blockquote>
+      
+      <blockquote id="annotation-selected-text"></blockquote>
 
       <label for="annotation-nickname">Name</label>
       <select id="annotation-nickname" required>
@@ -44,10 +46,19 @@
       <label for="annotation-body">Comment</label>
       <textarea
         id="annotation-body"
-        maxlength="2000"
+        name="body"
+        maxlength="5000"
         rows="5"
         required
       ></textarea>
+
+      <label for="annotation-image">Attach a photo (optional, max 5 MB)</label>
+      <input
+        id="annotation-image"
+        name="image"
+        type="file"
+        accept="image/*"
+        >
 
       <p id="annotation-status" aria-live="polite"></p>
 

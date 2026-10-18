@@ -48,14 +48,22 @@
 
   let currentUserId = null;
   let currentAnnotations = [];
+  let currentReplies = [];
+  let readReplyIds = new Set();
   let selectedRange = null;
   let selectedText = "";
   let currentPagePath = "";
 
   let refreshTimer = null;
   let repositionTimer = null;
+  let sidebarResizeObserver = null;
 
   const MOBILE_QUERY = "(max-width: 900px)";
+  const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
+  const IMAGE_BUCKET = "annotation-images";
+  const SIDEBAR_WIDTH_KEY = "annotation-sidebar-width";
+  const MIN_SIDEBAR_WIDTH = 320;
+  const MAX_SIDEBAR_WIDTH = 1000;
 
   // ============================================================
   // 4. 基础工具
@@ -337,7 +345,7 @@
     } = await supabaseClient
       .from("annotations")
       .select(
-        "id, page_path, selected_text, prefix, suffix, start_offset, end_offset, nickname, body, user_id, created_at"
+        "id, page_path, selected_text, prefix, suffix, start_offset, end_offset, nickname, body, user_id, created_at, parent_id, image_path"
       )
       .eq("page_path", pagePath)
       .order("created_at", { ascending: true });
@@ -348,6 +356,22 @@
     }
 
     currentAnnotations = data || [];
+
+    // Replies are separate rows in the same table; legacy top-level rows have parent_id = null.
+    currentReplies = currentAnnotations.filter((item) => item.parent_id);
+    currentAnnotations = currentAnnotations.filter((item) => !item.parent_id);
+
+    if (currentUserId && currentReplies.length) {
+      const { data: reads, error: readError } = await supabaseClient
+        .from("annotation_reply_reads")
+        .select("reply_id")
+        .eq("user_id", currentUserId)
+        .in("reply_id", currentReplies.map((reply) => reply.id));
+      if (readError) throw readError;
+      readReplyIds = new Set((reads || []).map((row) => row.reply_id));
+    } else {
+      readReplyIds = new Set();
+    }
 
     return currentAnnotations;
   }
@@ -383,6 +407,47 @@
     date.textContent = formatDate(annotation.created_at);
 
     card.append(quote, nickname, body, date);
+    if (annotation.image_path) {
+      const image = document.createElement("img");
+      image.className = "annotation-attachment";
+      image.alt = "Comment attachment";
+      image.loading = "lazy";
+      image.src = supabaseClient.storage.from(IMAGE_BUCKET).getPublicUrl(annotation.image_path).data.publicUrl;
+      card.appendChild(image);
+    }
+
+    const replies = currentReplies.filter((reply) => reply.parent_id === annotation.id);
+    const unreadCount = currentUserId === annotation.user_id
+      ? replies.filter((reply) => reply.user_id !== currentUserId && !readReplyIds.has(reply.id)).length
+      : 0;
+    const thread = document.createElement("section");
+    thread.className = "annotation-replies";
+    const threadToggle = document.createElement("button");
+    threadToggle.type = "button";
+    threadToggle.className = "annotation-replies-toggle";
+    threadToggle.setAttribute("aria-expanded", "false");
+    threadToggle.innerHTML = `Replies (${replies.length})${unreadCount ? '<span class="annotation-unread-dot" aria-label="Unread replies"></span>' : ""}`;
+    const replyList = document.createElement("div");
+    replyList.className = "annotation-reply-list";
+    replyList.hidden = true;
+    replies.forEach((reply) => replyList.appendChild(createReplyCard(reply)));
+    threadToggle.addEventListener("click", async (event) => {
+      event.stopPropagation();
+      const opening = replyList.hidden;
+      replyList.hidden = !opening;
+      threadToggle.setAttribute("aria-expanded", String(opening));
+      if (opening && unreadCount) await markRepliesRead(replies.filter((reply) => reply.user_id !== currentUserId));
+    });
+    thread.append(threadToggle, replyList);
+    const replyButton = document.createElement("button");
+    replyButton.type = "button";
+    replyButton.className = "annotation-reply-button";
+    replyButton.textContent = "Reply";
+    replyButton.addEventListener("click", (event) => {
+      event.stopPropagation();
+      openReplyComposer(annotation, thread);
+    });
+    card.append(thread, replyButton);
 
     // 只显示当前用户自己评论的删除按钮
     if (currentUserId && annotation.user_id === currentUserId) {
@@ -403,12 +468,141 @@
 
     // 点击评论卡片，滚动到对应的文章位置
     card.addEventListener("click", (event) => {
-      if (event.target.closest("button")) return;
+      if (event.target.closest("button, input, textarea, label")) return;
 
       scrollToAnnotation(annotation);
     });
 
     return card;
+  }
+
+  function createReplyCard(reply) {
+    const item = document.createElement("article");
+    item.className = "annotation-reply";
+    const author = document.createElement("strong");
+    author.textContent = reply.nickname || "Guest";
+    const text = document.createElement("p");
+    text.textContent = reply.body || "";
+    const date = document.createElement("time");
+    date.textContent = formatDate(reply.created_at);
+    item.append(author, text, date);
+    if (reply.image_path) {
+      const image = document.createElement("img");
+      image.alt = "Comment attachment";
+      image.loading = "lazy";
+      image.src = supabaseClient.storage.from(IMAGE_BUCKET).getPublicUrl(reply.image_path).data.publicUrl;
+      item.appendChild(image);
+    }
+    if (currentUserId && reply.user_id === currentUserId) {
+      const remove = document.createElement("button");
+      remove.type = "button";
+      remove.className = "annotation-delete";
+      remove.textContent = "Delete";
+      remove.addEventListener("click", (event) => { event.stopPropagation(); deleteAnnotation(reply.id); });
+      item.appendChild(remove);
+    }
+    return item;
+  }
+
+  async function markRepliesRead(replies) {
+    const unread = replies.filter((reply) => !readReplyIds.has(reply.id));
+    if (!unread.length || !currentUserId) return;
+    const rows = unread.map((reply) => ({ reply_id: reply.id, user_id: currentUserId }));
+    const { error } = await supabaseClient.from("annotation_reply_reads").upsert(rows, { onConflict: "reply_id,user_id", ignoreDuplicates: true });
+    if (error) { console.error("[Annotations] 标记回复已读失败：", error); return; }
+    unread.forEach((reply) => readReplyIds.add(reply.id));
+    renderAnnotations();
+    scheduleReposition();
+  }
+
+  function openReplyComposer(parent, thread) {
+    const existing = thread.querySelector(".annotation-reply-form");
+    if (existing) { existing.querySelector("textarea")?.focus(); return; }
+    const replyForm = document.createElement("form");
+    replyForm.className = "annotation-reply-form";
+    const identity = document.createElement("div");
+    identity.className = "annotation-reply-identity";
+    const nicknameLabel = document.createElement("label");
+    nicknameLabel.className = "annotation-reply-label";
+    nicknameLabel.textContent = "Replying as";
+    const nicknameSelect = document.createElement("select");
+    nicknameSelect.className = "annotation-reply-nickname";
+    nicknameSelect.setAttribute("aria-label", "Choose who is replying");
+    const mainNicknameSelect = document.querySelector("#annotation-nickname, [name='nickname']");
+    if (mainNicknameSelect?.tagName === "SELECT" && mainNicknameSelect.options.length) {
+      Array.from(mainNicknameSelect.options).forEach((option) => {
+        const copy = document.createElement("option");
+        copy.value = option.value;
+        copy.textContent = option.textContent;
+        nicknameSelect.appendChild(copy);
+      });
+      nicknameSelect.value = mainNicknameSelect.value;
+    } else {
+      ["Lkh", "FernandoZ"].forEach((name) => {
+        const option = document.createElement("option");
+        option.value = name;
+        option.textContent = name;
+        nicknameSelect.appendChild(option);
+      });
+    }
+    nicknameSelect.addEventListener("change", () => {
+      if (nicknameSelect.value) localStorage.setItem("annotation-nickname", nicknameSelect.value);
+    });
+    nicknameLabel.appendChild(nicknameSelect);
+    identity.appendChild(nicknameLabel);
+    const input = document.createElement("textarea");
+    input.required = true; input.maxLength = 5000; input.placeholder = "Write a reply";
+    input.setAttribute("aria-label", "Reply text");
+    const file = document.createElement("input");
+    file.type = "file"; file.accept = "image/*"; file.setAttribute("aria-label", "Attach a photo");
+    file.className = "annotation-reply-photo";
+    const actions = document.createElement("div");
+    actions.className = "annotation-reply-actions";
+    const cancel = document.createElement("button");
+    cancel.type = "button"; cancel.className = "annotation-reply-cancel"; cancel.textContent = "Cancel";
+    cancel.addEventListener("click", () => replyForm.remove());
+    const submit = document.createElement("button");
+    submit.type = "submit"; submit.className = "annotation-reply-submit"; submit.textContent = "Post reply";
+    actions.append(cancel, submit);
+    replyForm.append(identity, input, file, actions); thread.appendChild(replyForm);
+    replyForm.addEventListener("submit", async (event) => {
+      event.preventDefault(); submit.disabled = true;
+      try { await submitAnnotation({ parent, body: input.value.trim(), file: file.files?.[0], nickname: nicknameSelect.value }); await refresh(); }
+      catch (error) { console.error("[Annotations] 回复失败：", error); alert("Could not post reply. Please check your connection and permissions."); }
+      finally { submit.disabled = false; }
+    });
+    input.focus();
+  }
+
+  async function uploadImage(file) {
+    if (!file) return null;
+    if (!file.type.startsWith("image/")) throw new Error("Please choose an image file.");
+    if (file.size > MAX_IMAGE_BYTES) throw new Error("Images must be 5 MB or smaller.");
+    await ensureGuestSession();
+    const path = `${currentUserId}/${crypto.randomUUID()}-${file.name.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
+    const { error } = await supabaseClient.storage.from(IMAGE_BUCKET).upload(path, file, { contentType: file.type, upsert: false });
+    if (error) throw error;
+    return path;
+  }
+
+  async function submitAnnotation({ parent = null, body, file = null, anchor = null, nickname = null } = {}) {
+    if (!body) throw new Error("Please enter a comment.");
+    await ensureGuestSession();
+    const image_path = await uploadImage(file);
+    const values = parent ? {
+      page_path: parent.page_path, selected_text: parent.selected_text, prefix: parent.prefix, suffix: parent.suffix,
+      start_offset: parent.start_offset, end_offset: parent.end_offset, nickname: nickname || getNickname(), body,
+      user_id: currentUserId, parent_id: parent.id, image_path
+    } : { ...anchor, nickname: getNickname(), body, user_id: currentUserId, image_path };
+    const { error } = await supabaseClient.from("annotations").insert(values);
+    if (error) throw error;
+  }
+
+  function getNickname() {
+    const input = document.querySelector("#annotation-nickname, [name='nickname']");
+    const value = input?.value?.trim() || "Guest";
+    if (input?.tagName === "SELECT") localStorage.setItem("annotation-nickname", value);
+    return value;
   }
 
   // ============================================================
@@ -623,7 +817,41 @@
       sidebar.style.right = "";
       sidebar.style.bottom = "";
       sidebar.style.left = "";
+      syncSidebarWidth();
     }
+  }
+
+  function clampSidebarWidth(width) {
+    const viewportLimit = Math.max(MIN_SIDEBAR_WIDTH, window.innerWidth - 24);
+    return Math.round(Math.min(MAX_SIDEBAR_WIDTH, viewportLimit, Math.max(MIN_SIDEBAR_WIDTH, width)));
+  }
+
+  function syncSidebarWidth(save = false) {
+    if (isMobile()) return;
+    const width = clampSidebarWidth(sidebar.getBoundingClientRect().width || MIN_SIDEBAR_WIDTH);
+    document.documentElement.style.setProperty("--annotation-width", `${width}px`);
+    if (save) {
+      try { localStorage.setItem(SIDEBAR_WIDTH_KEY, String(width)); } catch { /* Storage may be disabled. */ }
+    }
+    scheduleReposition();
+  }
+
+  function setupSidebarResize() {
+    let initialWidth = MIN_SIDEBAR_WIDTH;
+    try {
+      const saved = Number(localStorage.getItem(SIDEBAR_WIDTH_KEY));
+      if (Number.isFinite(saved) && saved >= MIN_SIDEBAR_WIDTH) initialWidth = saved;
+    } catch { /* Use the default width when storage is unavailable. */ }
+    document.documentElement.style.setProperty("--annotation-width", `${clampSidebarWidth(initialWidth)}px`);
+
+    if (typeof ResizeObserver === "function") {
+      sidebarResizeObserver = new ResizeObserver(() => {
+        if (!isMobile()) syncSidebarWidth(true);
+      });
+      sidebarResizeObserver.observe(sidebar);
+    }
+    sidebar.addEventListener("pointerup", () => syncSidebarWidth(true));
+    sidebar.addEventListener("mouseup", () => syncSidebarWidth(true));
   }
 
   // ============================================================
@@ -859,6 +1087,9 @@
         return;
       }
 
+      const imageInput = form.querySelector("#annotation-image, [name='image']");
+      const imageFile = imageInput?.files?.[0] || null;
+
       try {
         await ensureGuestSession();
 
@@ -884,25 +1115,14 @@
           endOffset + 50
         );
 
-        const {
-          error
-        } = await supabaseClient
-          .from("annotations")
-          .insert({
+        await submitAnnotation({ body, file: imageFile, anchor: {
             page_path: getCurrentPagePath(),
             selected_text: selectedText,
             prefix,
             suffix,
             start_offset: startOffset,
             end_offset: endOffset,
-            nickname: nickname || "Guest",
-            body,
-            user_id: currentUserId
-          });
-
-        if (error) {
-          throw error;
-        }
+          }});
 
         form.reset();
 
@@ -922,6 +1142,13 @@
         );
       }
     });
+
+    const nicknameInput = form.querySelector("#annotation-nickname, [name='nickname']");
+    if (nicknameInput?.tagName === "SELECT") {
+      const saved = localStorage.getItem("annotation-nickname");
+      if (saved && Array.from(nicknameInput.options).some((option) => option.value === saved)) nicknameInput.value = saved;
+      nicknameInput.addEventListener("change", () => localStorage.setItem("annotation-nickname", nicknameInput.value));
+    }
 
     // 支持表单内的取消按钮
     const cancelButton =
@@ -994,6 +1221,7 @@
   }
 
   function initializeAnnotationLayout() {
+    setupSidebarResize();
     updateAnnotationLayout();
     setupCommentsToggle();
   }
