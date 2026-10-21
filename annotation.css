@@ -1,826 +1,1651 @@
 
+
 /* ==========================================
+
    1. 全局设置
+
    ========================================== */
+
+
 
 :root {
+
   --annotation-width: 320px;
+
 }
 
+
+
 /* ==========================================
+
    2. 右侧批注栏：默认 / 桌面端
+
    ========================================== */
 
+
+
 #annotation-sidebar {
+
   position: fixed;
+
   top: 0;
+
   right: 0;
 
+
+
   width: var(--annotation-width);
+
   height: 100vh;
 
+
+
   padding: 20px;
+
   box-sizing: border-box;
 
+
+
   overflow-x: hidden;
+
   overflow-y: auto;
+
+
 
   z-index: 1000;
 
+
+
   background: #fff;
+
   border-left: 1px solid #ddd;
 
+
+
   color: #34495e;
+
   font-size: 14px;
+
 }
 
+
+
 /* ==========================================
+
    3. 批注栏标题
+
    ========================================== */
 
+
+
 #annotation-sidebar .annotation-header {
+
   position: sticky;
+
   top: -20px;
+
+
 
   padding: 10px 0;
 
+
+
   background: #fff;
+
   border-bottom: 1px solid #eee;
 
+
+
   z-index: 2;
+
 }
+
+
 
 #annotation-sidebar .annotation-header h3 {
+
   margin: 0 0 8px;
+
 }
 
+
+
 #annotation-sidebar .annotation-header p {
+
   position: relative;
+
   margin: 8px 0;
+
+
 
   height: auto;
 
+
+
   font-size: 12px;
+
   color: #777;
+
 }
+
+
 
 /* ==========================================
+
    4. 批注卡片
+
    ========================================== */
 
+
+
 #annotation-list {
+
   position: relative;
+
   min-height: 0;
+
 }
 
+
+
 #annotation-sidebar .annotation-card {
+
   position: absolute;
 
+
+
   left: 0;
+
   right: 0;
 
+
+
   width: 100%;
+
   min-width: 0;
 
+
+
   padding: 12px;
+
   margin: 0;
+
+
 
   box-sizing: border-box;
 
+
+
   border: 1px solid #e5e5e5;
+
   border-radius: 8px;
+
+
 
   background: #fafafa;
 
+
+
   overflow-wrap: anywhere;
+
 }
 
+
+
 #annotation-sidebar .annotation-card blockquote,
+
 #annotation-sidebar .annotation-card .annotation-card-quote {
+
   margin: 0 0 8px;
+
   padding-left: 10px;
+
+
 
   border-left: 3px solid #42b983;
 
+
+
   color: #666;
+
 }
+
+
 
 #annotation-sidebar .annotation-card .annotation-author,
+
 #annotation-sidebar .annotation-card .annotation-card-nickname {
+
   font-weight: 600;
+
 }
+
+
 
 #annotation-sidebar .annotation-card .annotation-body,
+
 #annotation-sidebar .annotation-card .annotation-card-body {
+
   white-space: pre-wrap;
+
   overflow-wrap: anywhere;
+
 }
+
+
 
 #annotation-sidebar .annotation-card .annotation-card-date {
+
   margin-top: 8px;
+
   font-size: 12px;
+
   color: #777;
+
 }
+
+
 
 #annotation-sidebar .annotation-card button {
+
   border: 0;
+
   padding: 0;
 
+
+
   background: transparent;
+
   color: inherit;
 
+
+
   text-align: left;
+
   cursor: pointer;
+
 }
+
+
 
 /* 删除按钮 */
 
+
+
 #annotation-sidebar .annotation-card .annotation-delete {
+
   display: inline-block;
+
+
 
   width: auto;
 
+
+
   margin-top: 8px;
+
   padding: 5px 10px;
 
+
+
   border: 1px solid #ddd;
+
   border-radius: 5px;
 
+
+
   background: #fff;
+
   color: #b42318;
 
+
+
   text-align: center;
+
   cursor: pointer;
+
 }
 
+
+
 #annotation-sidebar .annotation-card .annotation-delete:hover {
+
   background: #fff1f0;
+
 }
+
+
 
 /* 空评论提示 */
 
+
+
 #annotation-sidebar .annotation-empty {
+
   margin-top: 12px;
+
   color: #777;
+
 }
 
+
+
 /* ==========================================
+
    5. 批注弹窗
+
    ========================================== */
+
+
 
 #annotation-dialog {
+
   width: min(480px, calc(100% - 32px));
 
+
+
   border: 1px solid #ddd;
+
   border-radius: 10px;
 
+
+
   padding: 24px;
+
   box-sizing: border-box;
+
 }
+
+
 
 #annotation-dialog::backdrop {
+
   background: #0007;
+
 }
+
+
 
 #annotation-form label {
+
   display: block;
+
   margin-top: 12px;
+
   font-weight: 600;
+
 }
+
+
 
 #annotation-form input,
+
 #annotation-form textarea {
+
   display: block;
 
+
+
   width: 100%;
+
   margin-top: 6px;
+
   padding: 10px;
 
+
+
   box-sizing: border-box;
+
   font: inherit;
+
 }
+
+
 
 .annotation-actions {
+
   display: flex;
+
   justify-content: flex-end;
+
   gap: 10px;
 
+
+
   margin-top: 16px;
+
 }
+
+
 
 #annotation-form button {
+
   cursor: pointer;
+
   padding: 8px 14px;
+
 }
 
+
+
 /* ==========================================
+
    6. 正文文字高亮
+
    ========================================== */
+
+
 
 ::highlight(docsify-annotations) {
+
   background-color: #ffe58a;
+
   color: #222;
+
 }
+
+
 
 ::highlight(docsify-active-annotation) {
+
   background-color: #ffad66;
+
   color: #222;
+
 }
 
+
+
 /* ==========================================
+
    7. 桌面端布局
+
    Outline | 正文 | Comments
+
    ========================================== */
+
+
 
 @media screen and (min-width: 901px) {
 
+
+
   body > main > section.content {
+
     right: 320px !important;
+
     width: auto !important;
+
     box-sizing: border-box;
+
   }
+
+
 
   body > main > section.content > article#main {
+
     width: 100% !important;
+
     max-width: 100% !important;
+
     box-sizing: border-box;
+
   }
+
+
 
   /* comment区域可伸缩*/
+
   #annotation-sidebar {
+
     width: clamp(320px, var(--annotation-sidebar-width, 360px), 1000px);
+
     min-width: 320px;
+
     max-width: min(1000px, calc(100vw - 24px));
+
     resize: horizontal;
+
     overflow: auto;
+
     box-sizing: border-box;
+
   }
+
   #annotation-sidebar .annotation-replies { margin-top: .65rem; }
+
   #annotation-sidebar .annotation-replies-toggle,
+
   #annotation-sidebar .annotation-reply-button { cursor: pointer; }
+
   #annotation-sidebar .annotation-unread-dot {
+
     display: inline-block; width: .58rem; height: .58rem; margin-left: .45rem;
+
     border-radius: 50%; background: #d22; vertical-align: middle;
+
   }
+
   #annotation-sidebar .annotation-reply-list { padding: .45rem 0 .15rem .75rem; border-left: 2px solid #ddd; }
+
   #annotation-sidebar .annotation-reply { margin: .5rem 0; padding: .6rem; border-radius: .35rem; background: rgba(127,127,127,.08); }
+
   #annotation-sidebar .annotation-reply p { white-space: pre-wrap; overflow-wrap: anywhere; margin: .35rem 0; }
+
   #annotation-sidebar .annotation-reply time { display: block; font-size: .78em; opacity: .7; }
+
   #annotation-sidebar .annotation-attachment,
+
   #annotation-sidebar .annotation-reply img { display: block; max-width: 100%; max-height: 360px; object-fit: contain; margin-top: .5rem; }
+
   #annotation-sidebar .annotation-reply-form { display: grid; gap: .4rem; margin-top: .5rem; }
+
   #annotation-sidebar .annotation-reply-form textarea { min-height: 4.5rem; resize: vertical; }
+
   #annotation-sidebar .annotation-reply-form input[type="file"] { max-width: 100%; }
+
   @media (max-width: 900px) {
+
     #annotation-sidebar { width: 100%; min-width: 0; max-width: 100%; resize: none; }
+
   }
+
+
 
   #annotation-sidebar .annotation-header {
+
     position: sticky;
+
     top: -20px;
+
     z-index: 2;
+
     background: #fff;
+
   }
+
+
 
   /* 桌面端由 JS 设置每张卡片的 top */
+
   #annotation-sidebar .annotation-card {
+
     position: absolute;
+
     left: 0;
+
     right: 0;
+
   }
+
+
 
   /* 桌面端隐藏移动端按钮 */
+
   .annotation-mobile-toggle {
+
     display: none !important;
+
   }
+
 }
 
+
+
 /* ==========================================
+
    8. 移动端布局
+
    正文在上，Comments 在下
+
    ========================================== */
+
+
 
 @media screen and (max-width: 900px) {
 
+
+
   body > main {
+
     width: 100% !important;
+
     max-width: 100% !important;
+
     margin: 0 !important;
+
   }
+
+
 
   body > main > section.content {
+
     box-sizing: border-box !important;
+
     max-width: 100% !important;
+
   }
+
+
 
   body > main > section.content > article#main {
+
     width: 100% !important;
+
     max-width: 100% !important;
+
     padding: 24px !important;
+
     box-sizing: border-box !important;
+
   }
 
+
+
   /* 评论栏位于正文后方，随页面正常滚动 */
+
   #annotation-sidebar {
+
     position: relative !important;
 
+
+
     top: auto !important;
+
     right: auto !important;
+
     bottom: auto !important;
+
     left: auto !important;
+
     inset: auto !important;
+
+
 
     display: block !important;
 
+
+
     width: 100% !important;
+
     height: auto !important;
 
+
+
     max-height: none !important;
+
     min-height: 0 !important;
 
+
+
     margin: 0 !important;
+
     padding: 16px !important;
+
+
 
     box-sizing: border-box !important;
 
+
+
     overflow: visible !important;
+
+
 
     background: #fff !important;
 
+
+
     border: 0 !important;
+
     border-top: 2px solid #e5e5e5 !important;
 
+
+
     z-index: auto !important;
+
   }
 
+
+
   /* 标题和提示文字正常占据空间，不遮挡评论 */
+
   #annotation-sidebar .annotation-header {
+
     position: relative !important;
 
+
+
     top: auto !important;
+
     right: auto !important;
+
     left: auto !important;
+
+
 
     display: flex !important;
 
+
+
     align-items: center !important;
+
     justify-content: space-between !important;
+
     flex-wrap: wrap !important;
+
+
 
     gap: 10px !important;
 
+
+
     height: auto !important;
+
     min-height: 0 !important;
 
+
+
     padding: 12px 0 !important;
+
     margin: 0 !important;
+
+
 
     overflow: visible !important;
 
+
+
     background: #fff !important;
+
     border-bottom: 1px solid #eee !important;
 
+
+
     z-index: auto !important;
+
   }
+
+
 
   #annotation-sidebar .annotation-header h3 {
+
     margin: 0 0 8px !important;
+
   }
 
+
+
   #annotation-sidebar .annotation-header p {
+
     position: relative !important;
 
+
+
     width: 100%;
+
     height: auto !important;
+
+
 
     margin: 8px 0 !important;
 
+
+
     font-size: 12px;
+
     color: #777;
+
   }
+
+
 
   /* Hide / Show Comments 按钮 */
+
   #annotation-sidebar .annotation-mobile-toggle {
+
     display: inline-block !important;
+
     visibility: visible !important;
+
     opacity: 1 !important;
 
+
+
     position: relative !important;
+
+
 
     width: auto !important;
+
     height: auto !important;
 
+
+
     padding: 7px 12px !important;
+
     margin: 0 !important;
 
+
+
     border: 1px solid #ddd !important;
+
     border-radius: 6px !important;
 
+
+
     background: #fff !important;
+
     color: #34495e !important;
 
+
+
     font-size: 13px !important;
+
     text-align: center !important;
 
+
+
     cursor: pointer !important;
+
   }
 
+
+
   /* 评论列表从标题区域之后开始 */
+
   #annotation-sidebar #annotation-list {
+
     position: relative !important;
+
+
 
     display: block;
 
+
+
     width: 100% !important;
+
     height: auto !important;
+
     min-height: 0 !important;
 
+
+
     margin-top: 12px !important;
+
     padding: 0 !important;
 
+
+
     overflow: visible !important;
+
   }
 
+
+
   /*
+
    * 移动端评论卡片进入正常文档流，
+
    * 不使用桌面端的绝对定位。
+
    */
+
   #annotation-sidebar .annotation-card {
+
     position: relative !important;
 
+
+
     top: auto !important;
+
     right: auto !important;
+
     bottom: auto !important;
+
     left: auto !important;
+
     inset: auto !important;
+
+
 
     display: block !important;
 
+
+
     width: 100% !important;
+
     max-width: 100% !important;
+
     min-width: 0 !important;
+
+
 
     height: auto !important;
 
+
+
     margin: 12px 0 !important;
+
+
 
     transform: none !important;
 
+
+
     box-sizing: border-box !important;
+
   }
+
+
 
   /* 收起时仅隐藏评论列表 */
+
   #annotation-sidebar.annotations-collapsed #annotation-list {
+
     display: none !important;
+
   }
 
+
+
   /* 移动端不需要固定底部评论栏的留白 */
+
   body {
+
     padding-bottom: 0 !important;
+
   }
+
 }
+
+
+
 
 
 /* ==========================================
+
    回复区：独立昵称选择、输入框与操作按钮
+
    ========================================== */
+
 #annotation-sidebar .annotation-replies {
+
   margin-top: 12px;
+
   padding-top: 10px;
+
   border-top: 1px solid #eceff2;
+
 }
+
+
 
 #annotation-sidebar .annotation-replies-toggle,
+
 #annotation-sidebar .annotation-reply-button {
+
   display: inline-flex;
+
   align-items: center;
+
   gap: 6px;
+
   min-height: 34px;
+
   padding: 6px 10px;
+
   border: 1px solid #dfe5e9;
+
   border-radius: 7px;
+
   background: #fff;
+
   color: #34495e;
+
   font: inherit;
+
   font-size: 13px;
+
   cursor: pointer;
+
   transition: background-color .15s ease, border-color .15s ease;
+
 }
 
+
+
 #annotation-sidebar .annotation-replies-toggle:hover,
+
 #annotation-sidebar .annotation-reply-button:hover {
+
   background: #f3faf7;
+
   border-color: #42b983;
+
 }
+
+
 
 #annotation-sidebar .annotation-reply-button { margin-top: 8px; }
 
+
+
 #annotation-sidebar .annotation-unread-dot {
+
   display: inline-block;
+
   width: 8px;
+
   height: 8px;
+
   border-radius: 50%;
+
   background: #d92d20;
+
 }
+
+
 
 #annotation-sidebar .annotation-reply-list {
+
   margin-top: 8px;
+
   padding: 2px 0 2px 12px;
+
   border-left: 2px solid #dceee6;
+
 }
+
+
 
 #annotation-sidebar .annotation-reply {
+
   margin: 8px 0;
+
   padding: 10px 12px;
+
   border: 1px solid #e8edf0;
+
   border-radius: 9px;
+
   background: #fff;
+
   box-shadow: 0 2px 7px rgba(30, 50, 60, .04);
+
 }
+
+
 
 #annotation-sidebar .annotation-reply p {
+
   margin: 6px 0;
+
   white-space: pre-wrap;
+
   overflow-wrap: anywhere;
+
 }
+
+
 
 #annotation-sidebar .annotation-reply time {
+
   display: block;
+
   color: #84909a;
+
   font-size: 11px;
+
 }
+
+
 
 #annotation-sidebar .annotation-reply img,
+
 #annotation-sidebar .annotation-attachment {
+
   display: block;
+
   max-width: 100%;
+
   max-height: 320px;
+
   margin-top: 8px;
+
   border-radius: 7px;
+
   object-fit: contain;
+
 }
 
+
+
 #annotation-sidebar .annotation-reply-form {
+
   display: grid;
+
   gap: 10px;
+
   margin: 10px 0 4px;
+
   padding: 12px;
+
   border: 1px solid #dfe8e3;
+
   border-radius: 10px;
+
   background: #f8fbf9;
+
 }
+
+
 
 #annotation-sidebar .annotation-reply-identity { display: grid; gap: 5px; }
 
+
+
 #annotation-sidebar .annotation-reply-label {
+
   display: grid;
+
   gap: 5px;
+
   color: #52616b;
+
   font-size: 12px;
+
   font-weight: 600;
+
 }
+
+
 
 #annotation-sidebar .annotation-reply-nickname,
+
 #annotation-sidebar .annotation-reply-form textarea,
+
 #annotation-sidebar .annotation-reply-photo {
+
   width: 100%;
+
   box-sizing: border-box;
+
   font: inherit;
+
 }
+
+
 
 #annotation-sidebar .annotation-reply-nickname {
+
   min-height: 38px;
+
   padding: 7px 9px;
+
   border: 1px solid #d5ded9;
+
   border-radius: 7px;
+
   background: #fff;
+
   color: #34495e;
+
 }
+
+
 
 #annotation-sidebar .annotation-reply-form textarea {
+
   min-height: 86px;
+
   padding: 10px;
+
   border: 1px solid #d5ded9;
+
   border-radius: 8px;
+
   background: #fff;
+
   color: #34495e;
+
   resize: vertical;
+
 }
 
+
+
 #annotation-sidebar .annotation-reply-nickname:focus,
+
 #annotation-sidebar .annotation-reply-form textarea:focus {
+
   outline: 2px solid rgba(66, 185, 131, .2);
+
   border-color: #42b983;
+
 }
+
+
 
 #annotation-sidebar .annotation-reply-photo { color: #64727c; font-size: 12px; }
 
+
+
 #annotation-sidebar .annotation-reply-actions {
+
   display: flex;
+
   justify-content: flex-end;
+
   gap: 8px;
+
 }
+
+
 
 #annotation-sidebar .annotation-reply-actions button {
+
   min-height: 36px;
+
   padding: 7px 12px;
+
   border: 1px solid #d7e0db;
+
   border-radius: 7px;
+
   background: #fff;
+
   color: #34495e;
+
   font: inherit;
+
   cursor: pointer;
+
 }
+
+
 
 #annotation-sidebar .annotation-reply-actions .annotation-reply-submit {
+
   border-color: #35a875;
+
   background: #42b983;
+
   color: #fff;
+
   font-weight: 600;
+
 }
+
+
 
 #annotation-sidebar .annotation-reply-actions .annotation-reply-submit:hover { background: #339f70; }
+
 #annotation-sidebar .annotation-reply-actions button:disabled { opacity: .6; cursor: wait; }
 
+
+
 #annotation-sidebar .annotation-card-controls {
+
   display: flex;
+
   align-items: center;
+
   flex-wrap: wrap;
+
   gap: 6px;
+
   margin-top: 8px;
+
 }
+
 #annotation-sidebar .annotation-card .annotation-card-controls button {
+
   display: inline-flex;
+
   align-items: center;
+
   gap: 6px;
+
   min-height: 34px;
+
   margin: 0;
+
   padding: 6px 10px;
+
   border: 1px solid #dfe5e9;
+
   border-radius: 7px;
+
   background: #fff;
+
   color: #34495e;
+
   font: inherit;
+
   font-size: 13px;
+
   text-align: center;
+
   cursor: pointer;
+
 }
+
 #annotation-sidebar .annotation-card .annotation-card-controls button:hover {
+
   background: #f3faf7;
+
   border-color: #42b983;
+
 }
+
 #annotation-sidebar .annotation-card-controls .annotation-reply-button { margin-top: 0; }
+
 #annotation-sidebar .annotation-offscreen-group {
+
   padding: 7px 9px;
+
   border: 1px solid #e2e8e5;
+
   border-radius: 8px;
+
   background: #f6f9f7;
+
   z-index: 2;
+
 }
+
 #annotation-sidebar .annotation-offscreen-group > summary {
+
   color: #52616b;
+
   font-size: 12px;
+
   font-weight: 600;
+
   cursor: pointer;
+
 }
+
 #annotation-sidebar .annotation-offscreen-group .annotation-card {
+
   position: relative;
+
   inset: auto;
+
   margin: 8px 0;
+
   padding: 9px;
+
   box-shadow: none;
+
 }
+
+
 
 #annotation-sidebar .annotation-reply .annotation-delete {
+
   display: inline-block;
+
   margin-top: 5px;
+
   padding: 4px 9px;
+
   border: 1px solid #f0d6d4;
+
   border-radius: 6px;
+
   background: #fff;
+
   color: #b42318;
+
   font: inherit;
+
   font-size: 12px;
+
   cursor: pointer;
+
 }
+
 #annotation-sidebar .annotation-reply .annotation-delete:hover { background: #fff1f0; }
 
+
+
 #annotation-sidebar .annotation-reply-notice {
+
   display: block;
+
   width: 100%;
+
   padding: 8px 10px;
+
   border: 1px solid #f2c66d;
+
   border-radius: 8px;
+
   background: #fff8e8;
+
   color: #76520c;
+
   font: inherit;
+
   font-size: 12px;
+
   line-height: 1.35;
+
   text-align: center;
+
   cursor: pointer;
+
   z-index: 30;
+
 }
+
 #annotation-sidebar .annotation-reply-notice:hover { background: #fff1cc; }
+
 #annotation-sidebar .annotation-reply-notice[hidden] { display: none !important; }
+
 #annotation-sidebar .annotation-reply-notice-top {
+
   position: sticky;
+
   top: 0;
+
   margin: 0 0 10px;
+
 }
+
 #annotation-sidebar .annotation-reply-notice-bottom { display: none; }
+
 #annotation-sidebar.annotation-has-unread-replies { padding-bottom: 62px; }
 
+
+
 @media screen and (max-width: 900px) {
+
   #annotation-sidebar .annotation-reply-form { padding: 10px; }
+
   #annotation-sidebar .annotation-reply-actions button { min-height: 40px; }
+
 }
+
+
 
 /* 修复桌面端侧栏遮挡正文，并让拖动宽度同步推开正文。 */
+
 @media screen and (min-width: 901px) {
+
   body > main > section.content {
+
     right: var(--annotation-width, 320px) !important;
+
     width: auto !important;
+
   }
 
+
+
   #annotation-sidebar {
+
     right: 0 !important;
+
     width: clamp(320px, var(--annotation-width, 320px), 1000px) !important;
+
     min-width: 320px !important;
+
     max-width: min(1000px, calc(100vw - 24px)) !important;
+
     resize: none !important;
+
     overflow: auto !important;
+
     box-sizing: border-box !important;
+
   }
+
+
 
   #annotation-sidebar .annotation-sidebar-resizer {
+
     position: absolute;
+
     top: 0;
+
     bottom: 0;
+
     left: 0;
+
     z-index: 20;
+
     width: 12px;
+
     cursor: ew-resize;
+
     touch-action: none;
+
     user-select: none;
+
   }
 
+
+
   #annotation-sidebar .annotation-reply-notice-bottom {
+
     display: block;
+
     position: fixed;
+
     right: 0;
+
     bottom: 0;
+
     width: var(--annotation-width, 320px);
+
     box-sizing: border-box;
+
     border-radius: 8px 8px 0 0;
+
     box-shadow: 0 -2px 10px rgba(30, 50, 60, .08);
+
   }
+
+
 
   #annotation-sidebar .annotation-sidebar-resizer::after {
+
     position: absolute;
+
     top: 50%;
+
     left: 4px;
+
     width: 3px;
+
     height: 46px;
+
     border-radius: 3px;
+
     background: #cbd5d0;
+
     content: "";
+
     transform: translateY(-50%);
+
     transition: background-color .15s ease, height .15s ease;
+
   }
+
+
 
   #annotation-sidebar .annotation-sidebar-resizer:hover::after,
+
   #annotation-sidebar.annotation-sidebar-resizing .annotation-sidebar-resizer::after {
+
     height: 64px;
+
     background: #42b983;
+
   }
+
+
 
   #annotation-sidebar.annotation-sidebar-resizing,
+
   #annotation-sidebar.annotation-sidebar-resizing * {
+
     user-select: none !important;
+
     cursor: ew-resize !important;
+
   }
+
 }
 
+
+
 @media screen and (max-width: 900px) {
+
   body > main > section.content { right: auto !important; }
+
   #annotation-sidebar {
+
     width: 100% !important;
+
     min-width: 0 !important;
+
     max-width: 100% !important;
+
     resize: none !important;
+
   }
+
   #annotation-sidebar .annotation-sidebar-resizer { display: none !important; }
+
   #annotation-sidebar .annotation-reply-notice-top {
+
     position: sticky;
+
     top: 0;
+
   }
+
   #annotation-sidebar .annotation-reply-notice-bottom {
+
     display: block;
+
     position: sticky;
+
     bottom: 0;
+
     width: 100%;
+
     margin-top: 10px;
+
     border-radius: 8px;
+
   }
+
   #annotation-sidebar.annotation-has-unread-replies { padding-bottom: 16px; }
+
 }
