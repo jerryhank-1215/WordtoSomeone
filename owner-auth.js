@@ -27,20 +27,17 @@
   let setupUser = null;
 
   function updateAccountBar(user) {
-    const ownerUser = user && !user.is_anonymous ? user : null;
-    accountEmail.textContent = ownerUser?.email ? `Signed in: ${ownerUser.email}` : "Not signed in";
-    openButton.hidden = Boolean(ownerUser);
-    logoutButton.hidden = !ownerUser;
+    const signedInUser = user && !user.is_anonymous ? user : null;
+    accountEmail.textContent = signedInUser?.email ? `Signed in: ${signedInUser.email}` : "Not signed in";
+    openButton.hidden = Boolean(signedInUser);
+    logoutButton.hidden = !signedInUser;
   }
   function openPanel() { panel.hidden = false; }
   function closePanel() { panel.hidden = true; document.body.classList.remove("owner-auth-pending"); }
   function setMode(next) {
     mode = next;
     setupUser = null;
-    modeButtons.forEach(button => {
-      button.hidden = false;
-      button.setAttribute("aria-pressed", String(button.dataset.authMode === mode));
-    });
+    modeButtons.forEach(button => { button.hidden = false; button.setAttribute("aria-pressed", String(button.dataset.authMode === mode)); });
     title.textContent = mode === "register" ? "Create account" : "Login";
     help.textContent = mode === "register" ? "Create an account with your email and password. Registration alone does not grant upload permissions." : "Sign in with your email and password.";
     passwordLabel.textContent = mode === "register" ? "Create password" : "Password";
@@ -55,9 +52,6 @@
   function showPasswordSetup(user) {
     mode = "set-password";
     setupUser = user;
-    modeButtons.forEach(button => { button.hidden = false; button.setAttribute("aria-pressed", "false"); });
-    title.textContent = "Set your password";
-    help.textContent = "Invitation verified. Set a password, or choose Login/Register above.";
     email.value = user.email || "";
     email.readOnly = Boolean(user.email);
     passwordLabel.textContent = "New password";
@@ -66,34 +60,27 @@
     confirmLabel.hidden = false;
     confirm.required = true;
     submit.textContent = "Save password";
-    status.textContent = "";
+    help.textContent = "Invitation verified. Set a password, or use the Login / Register controls.";
+    modeButtons.forEach(button => { button.hidden = false; button.setAttribute("aria-pressed", "false"); });
     openPanel();
   }
 
-  modeButtons.forEach(button => button.addEventListener("click", () => setMode(button.dataset.authMode)));
   openButton.addEventListener("click", () => { setMode("login"); openPanel(); });
-  logoutButton.addEventListener("click", async () => {
-    const { error } = await client.auth.signOut();
-    if (error) status.textContent = error.message;
-  });
+  logoutButton.addEventListener("click", async () => { const { error } = await client.auth.signOut(); if (error) status.textContent = error.message; });
+  modeButtons.forEach(button => button.addEventListener("click", () => setMode(button.dataset.authMode)));
   document.getElementById("owner-auth-cancel").addEventListener("click", closePanel);
   panel.addEventListener("click", event => { if (event.target === panel) closePanel(); });
   client.auth.onAuthStateChange((_event, session) => updateAccountBar(session?.user || null));
 
   form.addEventListener("submit", async event => {
-    event.preventDefault();
-    status.textContent = "";
-    submit.disabled = true;
+    event.preventDefault(); status.textContent = ""; submit.disabled = true;
     try {
       if (password.value.length < 8) throw new Error("Please use at least 8 characters.");
       if (mode === "set-password" && setupUser) {
         if (password.value !== confirm.value) throw new Error("The passwords do not match.");
         const { error } = await client.auth.updateUser({ password: password.value });
         if (error) throw error;
-        setupUser = null;
-        form.reset();
-        email.readOnly = false;
-        setMode("login");
+        setupUser = null; form.reset(); email.readOnly = false; setMode("login");
         status.textContent = "Password saved. You can now log in with your email and password.";
       } else if (mode === "register") {
         if (password.value !== confirm.value) throw new Error("The passwords do not match.");
@@ -117,15 +104,9 @@
       updateAccountBar(data.session?.user || null);
       if (isSetupCallback && data.session?.user && !data.session.user.is_anonymous) {
         showPasswordSetup(data.session.user);
-        const clean = new URL(location.href);
-        clean.searchParams.delete("code");
-        clean.hash = "#/";
-        history.replaceState({}, document.title, clean);
-        window.dispatchEvent(new HashChangeEvent("hashchange"));
-      } else if (isSetupCallback) {
-        openPanel();
-        status.textContent = "No active invitation session was found. The link may have expired or already been used.";
-      }
+        const clean = new URL(location.href); clean.searchParams.delete("code"); clean.hash = "#/";
+        history.replaceState({}, document.title, clean); window.dispatchEvent(new HashChangeEvent("hashchange"));
+      } else if (isSetupCallback) { openPanel(); status.textContent = "No active invitation session was found. The link may have expired or already been used."; }
     } catch (error) { openPanel(); status.textContent = error.message || "Could not check the sign-in session."; }
     finally { document.body.classList.remove("owner-auth-pending"); }
   })();
