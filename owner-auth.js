@@ -9,7 +9,9 @@
 
   const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
   const panel = document.getElementById("owner-auth-panel");
-  const launch = document.getElementById("owner-auth-launch");
+  const accountEmail = document.getElementById("owner-account-email");
+  const openButton = document.getElementById("owner-auth-open");
+  const logoutButton = document.getElementById("owner-auth-logout");
   const form = document.getElementById("owner-auth-form");
   const email = document.getElementById("owner-auth-email");
   const password = document.getElementById("owner-auth-password");
@@ -24,6 +26,12 @@
   let mode = "login";
   let setupUser = null;
 
+  function updateAccountBar(user) {
+    const ownerUser = user && !user.is_anonymous ? user : null;
+    accountEmail.textContent = ownerUser?.email ? `Signed in: ${ownerUser.email}` : "Not signed in";
+    openButton.hidden = Boolean(ownerUser);
+    logoutButton.hidden = !ownerUser;
+  }
   function openPanel() { panel.hidden = false; }
   function closePanel() { panel.hidden = true; document.body.classList.remove("owner-auth-pending"); }
   function setMode(next) {
@@ -33,7 +41,7 @@
       button.hidden = false;
       button.setAttribute("aria-pressed", String(button.dataset.authMode === mode));
     });
-    title.textContent = mode === "register" ? "Create account" : "Owner login";
+    title.textContent = mode === "register" ? "Create account" : "Login";
     help.textContent = mode === "register" ? "Create an account with your email and password. Registration alone does not grant upload permissions." : "Sign in with your email and password.";
     passwordLabel.textContent = mode === "register" ? "Create password" : "Password";
     password.autocomplete = mode === "register" ? "new-password" : "current-password";
@@ -47,10 +55,9 @@
   function showPasswordSetup(user) {
     mode = "set-password";
     setupUser = user;
-    // Keep Login/Register visible and clickable even while an invite session is active.
     modeButtons.forEach(button => { button.hidden = false; button.setAttribute("aria-pressed", "false"); });
     title.textContent = "Set your password";
-    help.textContent = "Your invitation is verified. Set a password, or choose Login/Register above.";
+    help.textContent = "Invitation verified. Set a password, or choose Login/Register above.";
     email.value = user.email || "";
     email.readOnly = Boolean(user.email);
     passwordLabel.textContent = "New password";
@@ -64,14 +71,14 @@
   }
 
   modeButtons.forEach(button => button.addEventListener("click", () => setMode(button.dataset.authMode)));
-  launch.addEventListener("click", async () => {
-    const { data, error } = await client.auth.getSession();
-    if (error) { openPanel(); status.textContent = error.message; return; }
-    if (data.session?.user && !data.session.user.is_anonymous) showPasswordSetup(data.session.user);
-    else { setMode("login"); openPanel(); }
+  openButton.addEventListener("click", () => { setMode("login"); openPanel(); });
+  logoutButton.addEventListener("click", async () => {
+    const { error } = await client.auth.signOut();
+    if (error) status.textContent = error.message;
   });
   document.getElementById("owner-auth-cancel").addEventListener("click", closePanel);
   panel.addEventListener("click", event => { if (event.target === panel) closePanel(); });
+  client.auth.onAuthStateChange((_event, session) => updateAccountBar(session?.user || null));
 
   form.addEventListener("submit", async event => {
     event.preventDefault();
@@ -107,7 +114,8 @@
     try {
       const { data, error } = await client.auth.getSession();
       if (error) throw error;
-      if (isSetupCallback && data.session?.user) {
+      updateAccountBar(data.session?.user || null);
+      if (isSetupCallback && data.session?.user && !data.session.user.is_anonymous) {
         showPasswordSetup(data.session.user);
         const clean = new URL(location.href);
         clean.searchParams.delete("code");
@@ -117,7 +125,7 @@
       } else if (isSetupCallback) {
         openPanel();
         status.textContent = "No active invitation session was found. The link may have expired or already been used.";
-      } else launch.hidden = false;
+      }
     } catch (error) { openPanel(); status.textContent = error.message || "Could not check the sign-in session."; }
     finally { document.body.classList.remove("owner-auth-pending"); }
   })();

@@ -9,7 +9,10 @@
   <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/docsify@4/lib/themes/vue.css">
   <link rel="stylesheet" href="./annotation.css">
   <style>
-    #owner-auth-launch { position: fixed; z-index: 2147483646; right: 16px; top: 12px; }
+    #owner-account-bar { position: fixed; z-index: 2147483646; top: 0; left: 0; right: 0; min-height: 42px; box-sizing: border-box; display: flex; align-items: center; justify-content: flex-end; gap: 12px; padding: 6px 16px; background: #263238; color: #fff; font: 14px/1.4 system-ui, sans-serif; }
+    #owner-account-bar[hidden] { display: none; }
+    #owner-account-bar button { border: 0; border-radius: 4px; padding: 6px 10px; cursor: pointer; }
+    #owner-account-email { max-width: min(60vw, 480px); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     #owner-auth-panel { position: fixed !important; z-index: 2147483647 !important; inset: 0; display: grid; place-items: center; padding: 16px; background: rgb(0 0 0 / .55); pointer-events: auto !important; }
     #owner-auth-panel[hidden] { display: none; }
     #owner-auth-card { position: relative; z-index: 1; pointer-events: auto !important; box-sizing: border-box; width: min(100%, 420px); padding: 24px; border-radius: 12px; background: white; color: #222; box-shadow: 0 12px 40px rgb(0 0 0 / .25); font: 16px/1.45 system-ui, sans-serif; }
@@ -21,6 +24,7 @@
     #owner-auth-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 14px; }
     #owner-auth-status { min-height: 1.4em; overflow-wrap: anywhere; }
     body.owner-auth-pending #app, body.owner-auth-pending #annotation-sidebar, body.owner-auth-pending #annotation-dialog { visibility: hidden; }
+    @media (max-width: 600px) { #owner-account-bar { justify-content: space-between; padding-inline: 8px; } }
   </style>
 </head>
 <body>
@@ -44,7 +48,11 @@
     </form>
   </dialog>
 
-  <button id="owner-auth-launch" type="button" hidden>Owner login / Set password</button>
+  <header id="owner-account-bar" aria-live="polite">
+    <span id="owner-account-email">Checking account…</span>
+    <button id="owner-auth-open" type="button" hidden>Login / Register</button>
+    <button id="owner-auth-logout" type="button" hidden>Log out</button>
+  </header>
   <section id="owner-auth-panel" hidden aria-modal="true" role="dialog" aria-labelledby="owner-auth-title">
     <div id="owner-auth-card">
       <h2 id="owner-auth-title">Owner login</h2>
