@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -7,61 +6,46 @@
   <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1" />
   <meta name="description" content="Description">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0">
-
-  <!-- 保留你原来的 Docsify Vue 主题 -->
   <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/docsify@4/lib/themes/vue.css">
-
-  <!-- 新增：批注栏样式 -->
   <link rel="stylesheet" href="./annotation.css">
+  <style>
+    #owner-auth-launch { position: fixed; z-index: 1000; right: 16px; top: 12px; }
+    #owner-auth-panel { position: fixed; z-index: 1100; inset: 0; display: grid; place-items: center; padding: 16px; background: rgb(0 0 0 / .45); }
+    #owner-auth-panel[hidden] { display: none; }
+    #owner-auth-card { box-sizing: border-box; width: min(100%, 420px); padding: 24px; border-radius: 12px; background: white; color: #222; box-shadow: 0 12px 40px rgb(0 0 0 / .25); font: 16px/1.45 system-ui, sans-serif; }
+    #owner-auth-card form { display: grid; gap: 10px; }
+    #owner-auth-card input { box-sizing: border-box; width: 100%; padding: 10px; }
+    #owner-auth-card button { padding: 9px 14px; cursor: pointer; }
+    #owner-auth-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 14px; }
+    #owner-auth-status { min-height: 1.4em; overflow-wrap: anywhere; }
+    body.owner-auth-pending #app, body.owner-auth-pending #annotation-sidebar, body.owner-auth-pending #annotation-dialog { visibility: hidden; }
+  </style>
 </head>
-
 <body>
-  <!-- 保留 Docsify 原有的 Markdown 渲染容器 -->
   <div id="app"></div>
 
-  <!-- 新增：右侧批注栏 -->
   <aside id="annotation-sidebar" aria-label="Text annotations">
     <div class="annotation-header">
       <h3>Comments</h3>
       <p>Select text in the article to leave a comment.</p>
     </div>
-
     <div id="annotation-list"></div>
   </aside>
 
-  <!-- 新增：批注输入框 -->
   <dialog id="annotation-dialog">
     <form id="annotation-form">
       <h3>Add a comment</h3>
-
-      
       <blockquote id="annotation-selected-text"></blockquote>
-
       <label for="annotation-nickname">Name</label>
       <select id="annotation-nickname" required>
-      <option value="Lkh">Lkh</option>
-      <option value="FernandoZ">FernandoZ</option>
+        <option value="Lkh">Lkh</option>
+        <option value="FernandoZ">FernandoZ</option>
       </select>
-
       <label for="annotation-body">Comment</label>
-      <textarea
-        id="annotation-body"
-        name="body"
-        maxlength="5000"
-        rows="5"
-        required
-      ></textarea>
-
+      <textarea id="annotation-body" name="body" maxlength="5000" rows="5" required></textarea>
       <label for="annotation-image">Attach a photo (optional, max 5 MB)</label>
-      <input
-        id="annotation-image"
-        name="image"
-        type="file"
-        accept="image/*"
-        >
-
+      <input id="annotation-image" name="image" type="file" accept="image/*">
       <p id="annotation-status" aria-live="polite"></p>
-
       <div class="annotation-actions">
         <button type="button" id="annotation-cancel">Cancel</button>
         <button type="submit" id="annotation-submit">Submit</button>
@@ -69,32 +53,41 @@
     </form>
   </dialog>
 
+  <button id="owner-auth-launch" type="button" hidden>Owner login / Set password</button>
+  <section id="owner-auth-panel" hidden aria-modal="true" role="dialog" aria-labelledby="owner-auth-title">
+    <div id="owner-auth-card">
+      <h2 id="owner-auth-title">Set your owner password</h2>
+      <p id="owner-auth-help">Use a unique password for this website.</p>
+      <form id="owner-auth-form">
+        <label for="owner-auth-email">Email</label>
+        <input id="owner-auth-email" type="email" autocomplete="username" required>
+        <label for="owner-auth-password">New password</label>
+        <input id="owner-auth-password" type="password" autocomplete="new-password" minlength="8" required>
+        <label for="owner-auth-confirm">Confirm password</label>
+        <input id="owner-auth-confirm" type="password" autocomplete="new-password" minlength="8" required>
+        <p id="owner-auth-status" aria-live="polite"></p>
+        <div id="owner-auth-actions">
+          <button id="owner-auth-cancel" type="button">Close</button>
+          <button id="owner-auth-submit" type="submit">Save password</button>
+        </div>
+      </form>
+    </div>
+  </section>
+
   <script>
     window.$docsify = {
       name: '',
       repo: '',
-
-      // 新增：Docsify 加载完 Markdown 页面后，
-      // 让批注系统重新计算文字位置。
-      plugins: [
-        function (hook) {
-          hook.doneEach(function () {
-            if (window.annotationSystem) {
-              window.annotationSystem.refresh();
-            }
-          });
-        }
-      ]
+      plugins: [function (hook) {
+        hook.doneEach(function () {
+          if (window.annotationSystem) window.annotationSystem.refresh();
+        });
+      }]
     };
   </script>
-
-  <!-- 保留 Docsify -->
-  <script src="//cdn.jsdelivr.net/npm/docsify@4"></script>
-
-  <!-- 新增：Supabase 客户端 -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-
-  <!-- 新增：批注逻辑 -->
+  <script src="./owner-auth.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/docsify@4"></script>
   <script src="./annotation.js"></script>
 </body>
 </html>
