@@ -9,13 +9,15 @@
   <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/docsify@4/lib/themes/vue.css">
   <link rel="stylesheet" href="./annotation.css">
   <style>
-    #owner-auth-launch { position: fixed; z-index: 1000; right: 16px; top: 12px; }
-    #owner-auth-panel { position: fixed; z-index: 1100; inset: 0; display: grid; place-items: center; padding: 16px; background: rgb(0 0 0 / .45); }
+    #owner-auth-launch { position: fixed; z-index: 2147483646; right: 16px; top: 12px; }
+    #owner-auth-panel { position: fixed !important; z-index: 2147483647 !important; inset: 0; display: grid; place-items: center; padding: 16px; background: rgb(0 0 0 / .55); pointer-events: auto !important; }
     #owner-auth-panel[hidden] { display: none; }
-    #owner-auth-card { box-sizing: border-box; width: min(100%, 420px); padding: 24px; border-radius: 12px; background: white; color: #222; box-shadow: 0 12px 40px rgb(0 0 0 / .25); font: 16px/1.45 system-ui, sans-serif; }
+    #owner-auth-card { position: relative; z-index: 1; pointer-events: auto !important; box-sizing: border-box; width: min(100%, 420px); padding: 24px; border-radius: 12px; background: white; color: #222; box-shadow: 0 12px 40px rgb(0 0 0 / .25); font: 16px/1.45 system-ui, sans-serif; }
     #owner-auth-card form { display: grid; gap: 10px; }
-    #owner-auth-card input { box-sizing: border-box; width: 100%; padding: 10px; }
+    #owner-auth-card input { position: relative; z-index: 2; pointer-events: auto !important; box-sizing: border-box; width: 100%; padding: 10px; }
     #owner-auth-card button { padding: 9px 14px; cursor: pointer; }
+    #owner-auth-modes { display: flex; gap: 8px; margin: 12px 0; }
+    #owner-auth-modes button[aria-pressed="true"] { font-weight: 700; outline: 2px solid #42b983; }
     #owner-auth-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 14px; }
     #owner-auth-status { min-height: 1.4em; overflow-wrap: anywhere; }
     body.owner-auth-pending #app, body.owner-auth-pending #annotation-sidebar, body.owner-auth-pending #annotation-dialog { visibility: hidden; }
@@ -58,10 +60,14 @@
     <div id="owner-auth-card">
       <h2 id="owner-auth-title">Set your owner password</h2>
       <p id="owner-auth-help">Use a unique password for this website.</p>
+      <div id="owner-auth-modes" role="group" aria-label="Choose account action">
+        <button type="button" data-auth-mode="login" aria-pressed="true">Login</button>
+        <button type="button" data-auth-mode="register" aria-pressed="false">Register</button>
+      </div>
       <form id="owner-auth-form">
         <label for="owner-auth-email">Email</label>
         <input id="owner-auth-email" type="email" autocomplete="username" required>
-        <label for="owner-auth-password">New password</label>
+        <label id="owner-auth-password-label" for="owner-auth-password">Password</label>
         <input id="owner-auth-password" type="password" autocomplete="new-password" minlength="8" required>
         <label for="owner-auth-confirm">Confirm password</label>
         <input id="owner-auth-confirm" type="password" autocomplete="new-password" minlength="8" required>
