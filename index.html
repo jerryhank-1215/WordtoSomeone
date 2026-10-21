@@ -25,42 +25,31 @@
 </head>
 <body>
   <div id="app"></div>
-
   <aside id="annotation-sidebar" aria-label="Text annotations">
-    <div class="annotation-header">
-      <h3>Comments</h3>
-      <p>Select text in the article to leave a comment.</p>
-    </div>
+    <div class="annotation-header"><h3>Comments</h3><p>Select text in the article to leave a comment.</p></div>
     <div id="annotation-list"></div>
   </aside>
-
   <dialog id="annotation-dialog">
     <form id="annotation-form">
       <h3>Add a comment</h3>
       <blockquote id="annotation-selected-text"></blockquote>
       <label for="annotation-nickname">Name</label>
-      <select id="annotation-nickname" required>
-        <option value="Lkh">Lkh</option>
-        <option value="FernandoZ">FernandoZ</option>
-      </select>
+      <select id="annotation-nickname" required><option value="Lkh">Lkh</option><option value="FernandoZ">FernandoZ</option></select>
       <label for="annotation-body">Comment</label>
       <textarea id="annotation-body" name="body" maxlength="5000" rows="5" required></textarea>
       <label for="annotation-image">Attach a photo (optional, max 5 MB)</label>
       <input id="annotation-image" name="image" type="file" accept="image/*">
       <p id="annotation-status" aria-live="polite"></p>
-      <div class="annotation-actions">
-        <button type="button" id="annotation-cancel">Cancel</button>
-        <button type="submit" id="annotation-submit">Submit</button>
-      </div>
+      <div class="annotation-actions"><button type="button" id="annotation-cancel">Cancel</button><button type="submit" id="annotation-submit">Submit</button></div>
     </form>
   </dialog>
 
   <button id="owner-auth-launch" type="button" hidden>Owner login / Set password</button>
   <section id="owner-auth-panel" hidden aria-modal="true" role="dialog" aria-labelledby="owner-auth-title">
     <div id="owner-auth-card">
-      <h2 id="owner-auth-title">Set your owner password</h2>
-      <p id="owner-auth-help">Use a unique password for this website.</p>
-      <div id="owner-auth-modes" role="group" aria-label="Choose account action">
+      <h2 id="owner-auth-title">Owner login</h2>
+      <p id="owner-auth-help">Sign in with your email and password.</p>
+      <div id="owner-auth-modes" role="group" aria-label="Choose login or registration">
         <button type="button" data-auth-mode="login" aria-pressed="true">Login</button>
         <button type="button" data-auth-mode="register" aria-pressed="false">Register</button>
       </div>
@@ -68,28 +57,19 @@
         <label for="owner-auth-email">Email</label>
         <input id="owner-auth-email" type="email" autocomplete="username" required>
         <label id="owner-auth-password-label" for="owner-auth-password">Password</label>
-        <input id="owner-auth-password" type="password" autocomplete="new-password" minlength="8" required>
-        <label for="owner-auth-confirm">Confirm password</label>
-        <input id="owner-auth-confirm" type="password" autocomplete="new-password" minlength="8" required>
+        <input id="owner-auth-password" type="password" autocomplete="current-password" minlength="8" required>
+        <label id="owner-auth-confirm-label" for="owner-auth-confirm" hidden>Confirm password</label>
+        <input id="owner-auth-confirm" type="password" autocomplete="new-password" minlength="8" hidden>
         <p id="owner-auth-status" aria-live="polite"></p>
-        <div id="owner-auth-actions">
-          <button id="owner-auth-cancel" type="button">Close</button>
-          <button id="owner-auth-submit" type="submit">Save password</button>
-        </div>
+        <div id="owner-auth-actions"><button id="owner-auth-cancel" type="button">Close</button><button id="owner-auth-submit" type="submit">Login</button></div>
       </form>
     </div>
   </section>
 
   <script>
-    window.$docsify = {
-      name: '',
-      repo: '',
-      plugins: [function (hook) {
-        hook.doneEach(function () {
-          if (window.annotationSystem) window.annotationSystem.refresh();
-        });
-      }]
-    };
+    window.$docsify = { name: '', repo: '', plugins: [function (hook) {
+      hook.doneEach(function () { if (window.annotationSystem) window.annotationSystem.refresh(); });
+    }] };
   </script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="./owner-auth.js"></script>
