@@ -1649,3 +1649,55 @@
   #annotation-sidebar.annotation-has-unread-replies { padding-bottom: 16px; }
 
 }
+
+/* Uploaded article links use the same Docsify sidebar list and link rules. */
+#uploaded-articles-menu {
+  margin-top: 0.5em;
+}
+
+#uploaded-articles-menu > .uploaded-articles-heading {
+  display: block;
+  padding: 0.25em 0.75em;
+  color: #505d6b;
+  font-size: 0.9em;
+  font-weight: 600;
+}
+
+#uploaded-articles-menu > ul {
+  margin: 0;
+  padding: 0;
+}
+
+#uploaded-articles-menu > ul > li {
+  display: flex;
+  align-items: center;
+  gap: 0.4em;
+}
+
+#uploaded-articles-menu > ul > li > a {
+  min-width: 0;
+  flex: 1;
+}
+
+#uploaded-articles-menu .article-delete-button {
+  flex: none;
+  margin: 0 0.5em 0 0;
+  padding: 0.2em 0.45em;
+  border: 1px solid #d9dfe5;
+  border-radius: 4px;
+  background: transparent;
+  color: #7b8794;
+  font: inherit;
+  font-size: 0.72em;
+  cursor: pointer;
+}
+
+#uploaded-articles-menu .article-delete-button:hover {
+  border-color: #c0392b;
+  color: #c0392b;
+}
+
+#uploaded-articles-menu .article-delete-button:disabled {
+  cursor: wait;
+  opacity: 0.6;
+}

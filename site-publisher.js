@@ -31,6 +31,7 @@
   const uploadStatus = document.getElementById("article-upload-status");
   let authMode = "login";
   let inviteUser = null;
+  let currentUser = null;
 
   function isSiteOwner(user) {
     return Boolean(user && !user.is_anonymous && user.email?.toLowerCase() === OWNER_EMAIL);
@@ -42,6 +43,7 @@
     authOpen.hidden = false;
     logoutButton.hidden = !verifiedUser;
     uploadOpen.hidden = !isSiteOwner(verifiedUser);
+    renderArticleMenu();
   }
   function openAuth() {
     supabaseClient.auth.getSession().then(({ data, error }) => {
@@ -124,7 +126,8 @@
   (async () => {
     try {
       const { data } = await supabaseClient.auth.getSession();
-      updateAccount(data?.session?.user || null);
+      currentUser = data?.session?.user || null;
+      updateAccount(currentUser);
       if (isInviteCallback && data?.session?.user && !data.session.user.is_anonymous) {
         inviteUser = data.session.user;
         authMode = "set-password";
@@ -143,7 +146,10 @@
       }
     } catch (error) { console.error("[Publisher] Could not read auth session:", error); }
   })();
-  supabaseClient.auth.onAuthStateChange((_event, session) => updateAccount(session?.user || null));
+  supabaseClient.auth.onAuthStateChange((_event, session) => {
+    currentUser = session?.user || null;
+    updateAccount(currentUser);
+  });
 
   // Article pages use a real static Docsify route, /published, with the article slug in its query.
   function requestedSlug() {
@@ -160,9 +166,9 @@
     const nav = document.querySelector(".sidebar-nav");
     if (!nav) return;
     let section = document.getElementById("uploaded-articles-menu");
-    if (!section) { section = document.createElement("section"); section.id = "uploaded-articles-menu"; nav.appendChild(section); }
+    if (!section) { section = document.createElement("li"); section.id = "uploaded-articles-menu"; nav.appendChild(section); }
     section.replaceChildren();
-    const heading = document.createElement("p"); heading.textContent = "Published articles"; section.appendChild(heading);
+    const heading = document.createElement("span"); heading.className = "uploaded-articles-heading"; heading.textContent = "Published articles"; section.appendChild(heading);
     try {
       const articles = await listArticles();
       const list = document.createElement("ul");
@@ -170,11 +176,62 @@
         const item = document.createElement("li"), link = document.createElement("a");
         link.href = `#/published?slug=${encodeURIComponent(article.slug)}`;
         link.textContent = article.title;
-        item.appendChild(link); list.appendChild(item);
+        item.appendChild(link);
+        if (isSiteOwner(currentUser)) {
+          const remove = document.createElement("button");
+          remove.type = "button";
+          remove.className = "article-delete-button";
+          remove.textContent = "Delete";
+          remove.setAttribute("aria-label", `Delete article ${article.title}`);
+          remove.addEventListener("click", async event => {
+            event.preventDefault();
+            event.stopPropagation();
+            if (!window.confirm(`Delete “${article.title}”?`)) return;
+            remove.disabled = true;
+            let articleContent;
+            try {
+              const { data: article, error: readError } = await supabaseClient.from(ARTICLE_TABLE).select("content").eq("slug", article.slug).maybeSingle();
+              if (readError) throw readError;
+              articleContent = article?.content || "";
+              const { error } = await supabaseClient.from(ARTICLE_TABLE).delete().eq("slug", article.slug);
+              if (error) throw error;
+            } catch (error) {
+              remove.disabled = false;
+              window.alert(`Could not delete article: ${error.message}`);
+              return;
+            }
+            await renderArticleMenu();
+            if (requestedSlug() === article.slug) location.hash = "/";
+            try {
+              await removeArticleImages(article.slug, articleContent);
+            } catch (error) {
+              console.warn("[Publisher] Article deleted, but image cleanup failed:", error);
+              window.alert(`The article was deleted, but some stored images could not be removed: ${error.message}`);
+            }
+          });
+          item.appendChild(remove);
+        }
+        list.appendChild(item);
       });
       section.appendChild(list);
       if (!articles.length) { const empty = document.createElement("small"); empty.textContent = "No uploaded articles yet."; section.appendChild(empty); }
     } catch (error) { const message = document.createElement("small"); message.textContent = `Could not load articles: ${error.message}`; section.appendChild(message); }
+  }
+
+  async function removeArticleImages(slug, content) {
+    const objectPaths = new Set();
+    for (const match of content.matchAll(/https?:\/\/[^\s)]+/g)) {
+      try {
+        const url = new URL(match[0]);
+        const bucketPrefix = `/storage/v1/object/public/${IMAGE_BUCKET}/`;
+        if (!url.pathname.includes(bucketPrefix)) continue;
+        const objectPath = decodeURIComponent(url.pathname.split(bucketPrefix)[1]);
+        if (objectPath.startsWith(`${slug}/`) && !objectPath.split("/").includes("..")) objectPaths.add(objectPath);
+      } catch { /* Ignore non-URL text in the Markdown. */ }
+    }
+    if (!objectPaths.size) return;
+    const { error } = await supabaseClient.storage.from(IMAGE_BUCKET).remove([...objectPaths]);
+    if (error) throw error;
   }
 
   const docsifyPlugin = function (hook) {
@@ -185,7 +242,12 @@
         .then(({ data, error }) => {
           if (error) next(`# Article could not be loaded\n\n${error.message}`);
           else if (!data) next("# Article not found\n\nThis article may have been removed.");
-          else next(`# ${data.title}\n\n${data.content || ""}`);
+          else {
+            const content = data.content || "";
+            const firstHeading = content.match(/^\s*#\s+(.+?)\s*#*\s*(?:\r?\n|$)/);
+            const alreadyHasTitle = firstHeading && firstHeading[1].trim().toLocaleLowerCase() === data.title.trim().toLocaleLowerCase();
+            next(alreadyHasTitle ? content : `# ${data.title}\n\n${content}`);
+          }
         }).catch(error => next(`# Article could not be loaded\n\n${error.message}`));
     });
     hook.doneEach(() => renderArticleMenu());
@@ -199,6 +261,16 @@
     uploadDialog.showModal();
   });
   document.getElementById("article-upload-close").addEventListener("click", () => uploadDialog.close());
+  document.getElementById("article-markdown-file").addEventListener("change", async event => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    try {
+      document.getElementById("article-content").value = await file.text();
+      uploadStatus.textContent = `Loaded ${file.name}. Attach any referenced images below.`;
+    } catch (error) {
+      uploadStatus.textContent = `Could not read Markdown file: ${error.message}`;
+    }
+  });
   uploadForm.addEventListener("submit", async event => {
     event.preventDefault(); uploadStatus.textContent = "Saving…";
     const { data: sessionData } = await supabaseClient.auth.getSession();
@@ -220,7 +292,14 @@
         const { error: uploadError } = await supabaseClient.storage.from(IMAGE_BUCKET).upload(imagePath, image, { contentType: image.type, upsert: false });
         if (uploadError) throw uploadError;
         const imageUrl = supabaseClient.storage.from(IMAGE_BUCKET).getPublicUrl(imagePath).data.publicUrl;
-        content += `\n\n![${image.name.replace(/[\[\]]/g, "")}](${imageUrl})`;
+        const escapedImageName = [...image.name].map(character => ".*+?^${}()|[]\\".includes(character) ? `\\${character}` : character).join("");
+        const reference = new RegExp(`(!\\[[^\\]]*\\]\\()${escapedImageName}(\\))`, "g");
+        if (reference.test(content)) {
+          reference.lastIndex = 0;
+          content = content.replace(reference, (_match, prefix, suffix) => `${prefix}${imageUrl}${suffix}`);
+        } else {
+          content += `\n\n![${image.name.replace(/[\[\]]/g, "")}](${imageUrl})`;
+        }
       }
       const { error } = await supabaseClient.from(ARTICLE_TABLE).upsert({ slug, title, content, updated_at: new Date().toISOString() }, { onConflict: "slug" });
       if (error) throw error;

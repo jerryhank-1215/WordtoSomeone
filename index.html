@@ -63,8 +63,12 @@
       <input id="article-title" maxlength="160" required>
       <label for="article-slug">URL name (lowercase letters, numbers, hyphens)</label>
       <input id="article-slug" pattern="[a-z0-9]+([a-z0-9-]*[a-z0-9])?" required>
+      <small>Creates a short address such as <code>#/published?slug=my-article</code>. Reusing a name updates that article.</small>
+      <label for="article-markdown-file">Choose an existing Markdown file (optional)</label>
+      <input id="article-markdown-file" type="file" accept=".md,text/markdown,text/plain">
       <label for="article-content">Markdown content</label>
       <textarea id="article-content" required></textarea>
+      <small>Paste Markdown source here or select a .md file above. Attach images below; in your Markdown, reference an attached filename like <code>![Diagram](diagram.png)</code> to place it inline.</small>
       <label for="article-image">Attach images (optional, max 5 MB each)</label>
       <input id="article-image" type="file" accept="image/*" multiple>
       <p id="article-upload-status" aria-live="polite"></p>

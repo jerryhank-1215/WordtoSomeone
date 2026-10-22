@@ -1,2 +1,1 @@
 - [Home](/)
-- Uploaded articles are listed below automatically after the site loads.
