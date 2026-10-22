@@ -190,9 +190,9 @@
             remove.disabled = true;
             let articleContent;
             try {
-              const { data: article, error: readError } = await supabaseClient.from(ARTICLE_TABLE).select("content").eq("slug", article.slug).maybeSingle();
+              const { data: articleRecord, error: readError } = await supabaseClient.from(ARTICLE_TABLE).select("content").eq("slug", article.slug).maybeSingle();
               if (readError) throw readError;
-              articleContent = article?.content || "";
+              articleContent = articleRecord?.content || "";
               const { error } = await supabaseClient.from(ARTICLE_TABLE).delete().eq("slug", article.slug);
               if (error) throw error;
             } catch (error) {
