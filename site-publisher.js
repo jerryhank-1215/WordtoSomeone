@@ -8,7 +8,8 @@
   const MAX_TOTAL_IMAGE_BYTES = 50 * 1024 * 1024;
   const supabaseClient = window.annotationSupabaseClient || window.supabase.createClient(
     "https://tmktgmoqdvsdenffsolt.supabase.co",
-    "sb_publishable_PAS4a4IYDT3AoJN24l7zVw_WmoYAG6I"
+    "sb_publishable_PAS4a4IYDT3AoJN24l7zVw_WmoYAG6I",
+    { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true } }
   );
 
   const accountEmail = document.getElementById("owner-account-email");
@@ -45,7 +46,7 @@
   let articleListRequest = null;
 
   function isSiteOwner(user) {
-    return Boolean(user && !user.is_anonymous && user.email?.toLowerCase() === OWNER_EMAIL);
+    return Boolean(user && !user.is_anonymous && user.email?.trim().toLowerCase() === OWNER_EMAIL);
   }
   function updateAccount(user) {
     const verifiedUser = user && !user.is_anonymous ? user : null;
@@ -61,7 +62,9 @@
       if (data?.session?.user && !data.session.user.is_anonymous) {
         authMode = "account";
         authTitle.textContent = "Account";
-        authHelp.textContent = isSiteOwner(data.session.user) ? "You are signed in as the site owner." : "You are signed in.";
+        authHelp.textContent = isSiteOwner(data.session.user)
+          ? `已登录管理员账号：${data.session.user.email}`
+          : `当前登录邮箱是 ${data.session.user.email || "未知"}。只有 ${OWNER_EMAIL} 可以发布文章。`;
         authModes.forEach(button => button.hidden = true);
         authForm.hidden = true;
         accountDetails.hidden = false;
@@ -121,10 +124,20 @@
         ? await supabaseClient.auth.signUp({ email: authEmail.value.trim(), password: authPassword.value, options: { emailRedirectTo: location.origin + location.pathname } })
         : await supabaseClient.auth.signInWithPassword({ email: authEmail.value.trim(), password: authPassword.value });
       if (result.error) throw result.error;
-      if (authMode === "register" && !result.data.session) authStatus.textContent = "Registration started. Check your email to confirm the account.";
-      else {
-        authStatus.textContent = authMode === "register" ? "Account created." : `Logged in as ${result.data.user.email}.`;
-        setTimeout(() => authDialog.close(), 500);
+      if (authMode === "register" && !result.data.session) {
+        authStatus.textContent = "Registration started. Check your email to confirm the account.";
+      } else {
+        currentUser = result.data.user || result.data.session?.user || null;
+        updateAccount(currentUser);
+        renderArticleMenu();
+        const owner = isSiteOwner(currentUser);
+        authStatus.textContent = authMode === "login"
+          ? (owner ? `已登录管理员账号：${currentUser.email}` : `已登录 ${currentUser?.email || "账号"}，但该邮箱没有发布权限。`)
+          : "Account created.";
+        if (authMode === "register" && !owner) {
+          authHelp.textContent = `新账号不会自动获得发布权限；只有 ${OWNER_EMAIL} 可以发布。`;
+        }
+        if (authMode !== "login" || owner) setTimeout(() => authDialog.close(), 700);
       }
     } catch (error) { authStatus.textContent = error.message || "Authentication failed."; }
     finally { authSubmit.disabled = false; authPassword.value = ""; authConfirm.value = ""; }
@@ -384,9 +397,21 @@
   });
   uploadForm.addEventListener("submit", async event => {
     event.preventDefault(); uploadStatus.textContent = "正在上传图片并保存文章…";
-    const { data: sessionData } = await supabaseClient.auth.getSession();
-    const user = sessionData?.session?.user;
-    if (!isSiteOwner(user)) { uploadStatus.textContent = "请先登录管理员账号再发布文章。"; return; }
+    let user = null;
+    try {
+      const { data, error } = await supabaseClient.auth.getUser();
+      if (error) throw error;
+      user = data.user;
+    } catch (error) {
+      uploadStatus.textContent = `无法确认登录状态：${error.message}`;
+      return;
+    }
+    currentUser = user;
+    updateAccount(user);
+    if (!isSiteOwner(user)) {
+      uploadStatus.textContent = `当前账号（${user?.email || "未登录"}）没有发布权限，请使用 ${OWNER_EMAIL} 登录。`;
+      return;
+    }
     const title = document.getElementById("article-title").value.trim();
     const slug = document.getElementById("article-slug").value.trim().toLowerCase();
     const body = document.getElementById("article-content").value;
