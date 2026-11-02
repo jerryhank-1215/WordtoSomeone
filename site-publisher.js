@@ -3,7 +3,9 @@
   const OWNER_EMAIL = "jerryandhank1215@gmail.com";
   const ARTICLE_TABLE = "site_articles";
   const IMAGE_BUCKET = "site-article-images";
-  const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
+  const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
+  const MAX_ARTICLE_IMAGES = 5;
+  const MAX_TOTAL_IMAGE_BYTES = 50 * 1024 * 1024;
   const supabaseClient = window.annotationSupabaseClient || window.supabase.createClient(
     "https://tmktgmoqdvsdenffsolt.supabase.co",
     "sb_publishable_PAS4a4IYDT3AoJN24l7zVw_WmoYAG6I"
@@ -32,6 +34,15 @@
   let authMode = "login";
   let inviteUser = null;
   let currentUser = null;
+  let articleMenuRevision = 0;
+  let articleMenuRenderedRevision = 0;
+  let articleMenuRenderPromise = null;
+  let articleMenuSignature = "";
+  let articleMenuHost = null;
+  let cachedArticles = null;
+  let cachedArticlesRevision = -1;
+  let articleDataRevision = 0;
+  let articleListRequest = null;
 
   function isSiteOwner(user) {
     return Boolean(user && !user.is_anonymous && user.email?.toLowerCase() === OWNER_EMAIL);
@@ -43,7 +54,6 @@
     authOpen.hidden = false;
     logoutButton.hidden = !verifiedUser;
     uploadOpen.hidden = !isSiteOwner(verifiedUser);
-    renderArticleMenu();
   }
   function openAuth() {
     supabaseClient.auth.getSession().then(({ data, error }) => {
@@ -149,6 +159,7 @@
   supabaseClient.auth.onAuthStateChange((_event, session) => {
     currentUser = session?.user || null;
     updateAccount(currentUser);
+    renderArticleMenu();
   });
 
   // Article pages use a real static Docsify route, /published, with the article slug in its query.
@@ -158,64 +169,124 @@
     return path === "published" ? new URLSearchParams(query).get("slug") : null;
   }
   async function listArticles() {
-    const { data, error } = await supabaseClient.from(ARTICLE_TABLE).select("slug,title").order("title");
-    if (error) throw error;
-    return data || [];
+    const revision = articleDataRevision;
+    if (cachedArticlesRevision === revision) return cachedArticles;
+    if (articleListRequest?.revision === revision) return articleListRequest.promise;
+    const request = { revision, promise: null };
+    request.promise = (async () => {
+      const { data, error } = await supabaseClient.from(ARTICLE_TABLE).select("slug,title").order("title");
+      if (error) throw error;
+      const articles = data || [];
+      if (revision === articleDataRevision) {
+        cachedArticles = articles;
+        cachedArticlesRevision = revision;
+      }
+      return articles;
+    })().finally(() => {
+      if (articleListRequest === request) articleListRequest = null;
+    });
+    articleListRequest = request;
+    return request.promise;
   }
-  async function renderArticleMenu() {
-    const nav = document.querySelector(".sidebar-nav");
-    if (!nav) return;
-    let section = document.getElementById("uploaded-articles-menu");
-    if (!section) { section = document.createElement("li"); section.id = "uploaded-articles-menu"; nav.appendChild(section); }
-    section.replaceChildren();
-    const heading = document.createElement("span"); heading.className = "uploaded-articles-heading"; heading.textContent = "Published articles"; section.appendChild(heading);
-    try {
-      const articles = await listArticles();
-      const list = document.createElement("ul");
-      articles.forEach(articleItem => {
-        const item = document.createElement("li"), link = document.createElement("a");
-        link.href = `#/published?slug=${encodeURIComponent(articleItem.slug)}`;
-        link.textContent = articleItem.title;
-        item.appendChild(link);
-        if (isSiteOwner(currentUser)) {
-          const remove = document.createElement("button");
-          remove.type = "button";
-          remove.className = "article-delete-button";
-          remove.textContent = "Delete";
-          remove.setAttribute("aria-label", `Delete article ${articleItem.title}`);
-          remove.addEventListener("click", async event => {
-            event.preventDefault();
-            event.stopPropagation();
-            if (!window.confirm(`Delete “${articleItem.title}”?`)) return;
-            remove.disabled = true;
-            let articleContent;
-            try {
-              const { data: articleRecord, error: readError } = await supabaseClient.from(ARTICLE_TABLE).select("content").eq("slug", articleItem.slug).maybeSingle();
-              if (readError) throw readError;
-              articleContent = articleRecord?.content || "";
-              const { error } = await supabaseClient.from(ARTICLE_TABLE).delete().eq("slug", articleItem.slug);
-              if (error) throw error;
-            } catch (error) {
-              remove.disabled = false;
-              window.alert(`Could not delete article: ${error.message}`);
-              return;
-            }
-            await renderArticleMenu();
-            if (requestedSlug() === articleItem.slug) location.hash = "/";
-            try {
-              await removeArticleImages(articleItem.slug, articleContent);
-            } catch (error) {
-              console.warn("[Publisher] Article deleted, but image cleanup failed:", error);
-              window.alert(`The article was deleted, but some stored images could not be removed: ${error.message}`);
-            }
-          });
-          item.appendChild(remove);
+  function invalidateArticleList() {
+    articleDataRevision += 1;
+    cachedArticles = null;
+    cachedArticlesRevision = -1;
+  }
+  function renderArticleMenu() {
+    articleMenuRevision += 1;
+    if (articleMenuRenderPromise) return articleMenuRenderPromise;
+    articleMenuRenderPromise = (async () => {
+      while (articleMenuRenderedRevision < articleMenuRevision) {
+        const revision = articleMenuRevision;
+        const nav = document.querySelector(".sidebar-nav");
+        if (!nav) { articleMenuRenderedRevision = revision; break; }
+        let section = document.getElementById("uploaded-articles-menu");
+        if (!section || section.parentElement !== nav) {
+          section = document.createElement("li");
+          section.id = "uploaded-articles-menu";
+          nav.appendChild(section);
         }
-        list.appendChild(item);
-      });
-      section.appendChild(list);
-      if (!articles.length) { const empty = document.createElement("small"); empty.textContent = "No uploaded articles yet."; section.appendChild(empty); }
-    } catch (error) { const message = document.createElement("small"); message.textContent = `Could not load articles: ${error.message}`; section.appendChild(message); }
+
+        let articles = [];
+        let loadError = null;
+        try { articles = await listArticles(); }
+        catch (error) { loadError = error; }
+        if (revision !== articleMenuRevision) continue;
+
+        const owner = isSiteOwner(currentUser);
+        const signature = JSON.stringify({ articles, owner, error: loadError?.message || "" });
+        if (articleMenuHost === nav && articleMenuSignature === signature && section.isConnected) {
+          articleMenuRenderedRevision = revision;
+          continue;
+        }
+
+        section.replaceChildren();
+        const heading = document.createElement("span");
+        heading.className = "uploaded-articles-heading";
+        heading.textContent = "已发布文章";
+        section.appendChild(heading);
+
+        if (loadError) {
+          const message = document.createElement("small");
+          message.textContent = `暂时无法加载文章：${loadError.message}`;
+          section.appendChild(message);
+        } else if (!articles.length) {
+          const empty = document.createElement("small");
+          empty.textContent = "暂无已发布文章";
+          section.appendChild(empty);
+        } else {
+          const list = document.createElement("ul");
+          articles.forEach(articleItem => {
+            const item = document.createElement("li");
+            const link = document.createElement("a");
+            link.href = `#/published?slug=${encodeURIComponent(articleItem.slug)}`;
+            link.textContent = articleItem.title;
+            item.appendChild(link);
+            if (owner) {
+              const remove = document.createElement("button");
+              remove.type = "button";
+              remove.className = "article-delete-button";
+              remove.textContent = "删除";
+              remove.setAttribute("aria-label", `删除文章 ${articleItem.title}`);
+              remove.addEventListener("click", async event => {
+                event.preventDefault();
+                event.stopPropagation();
+                if (!window.confirm(`确定删除《${articleItem.title}》吗？`)) return;
+                remove.disabled = true;
+                let articleContent = "";
+                try {
+                  const { data: articleRecord, error: readError } = await supabaseClient.from(ARTICLE_TABLE).select("content").eq("slug", articleItem.slug).maybeSingle();
+                  if (readError) throw readError;
+                  articleContent = articleRecord?.content || "";
+                  const { error } = await supabaseClient.from(ARTICLE_TABLE).delete().eq("slug", articleItem.slug);
+                  if (error) throw error;
+                } catch (error) {
+                  remove.disabled = false;
+                  window.alert(`删除失败：${error.message}`);
+                  return;
+                }
+                invalidateArticleList();
+                await renderArticleMenu();
+                if (requestedSlug() === articleItem.slug) location.hash = "/";
+                try { await removeArticleImages(articleItem.slug, articleContent); }
+                catch (error) { window.alert(`文章已删除，但部分图片未能清理：${error.message}`); }
+              });
+              item.appendChild(remove);
+            }
+            list.appendChild(item);
+          });
+          section.appendChild(list);
+        }
+        articleMenuHost = nav;
+        articleMenuSignature = signature;
+        articleMenuRenderedRevision = revision;
+      }
+    })().finally(() => {
+      articleMenuRenderPromise = null;
+      if (articleMenuRenderedRevision < articleMenuRevision) renderArticleMenu();
+    });
+    return articleMenuRenderPromise;
   }
 
   async function removeArticleImages(slug, content) {
@@ -234,6 +305,43 @@
     if (error) throw error;
   }
 
+  async function uploadArticleImage(path, file, onProgress) {
+    const RESUMABLE_THRESHOLD = 6 * 1024 * 1024;
+    if (file.size <= RESUMABLE_THRESHOLD || !window.tus?.Upload) {
+      const { error } = await supabaseClient.storage.from(IMAGE_BUCKET).upload(path, file, {
+        contentType: file.type,
+        upsert: false
+      });
+      if (error) throw error;
+      onProgress(100);
+      return;
+    }
+
+    const { data, error } = await supabaseClient.auth.getSession();
+    if (error) throw error;
+    if (!data.session?.access_token) throw new Error("管理员登录已过期，请重新登录后上传。");
+    await new Promise((resolve, reject) => {
+      const upload = new window.tus.Upload(file, {
+        endpoint: "https://tmktgmoqdvsdenffsolt.storage.supabase.co/storage/v1/upload/resumable",
+        retryDelays: [0, 3000, 5000, 10000, 20000],
+        headers: { authorization: `Bearer ${data.session.access_token}` },
+        uploadDataDuringCreation: true,
+        removeFingerprintOnSuccess: true,
+        chunkSize: RESUMABLE_THRESHOLD,
+        metadata: {
+          bucketName: IMAGE_BUCKET,
+          objectName: path,
+          contentType: file.type,
+          cacheControl: "3600"
+        },
+        onError: reject,
+        onProgress: (uploaded, total) => onProgress(Math.floor(uploaded / total * 100)),
+        onSuccess: resolve
+      });
+      upload.start();
+    });
+  }
+
   const docsifyPlugin = function (hook) {
     hook.beforeEach((markdown, next) => {
       const slug = requestedSlug();
@@ -250,7 +358,10 @@
           }
         }).catch(error => next(`# Article could not be loaded\n\n${error.message}`));
     });
-    hook.doneEach(() => renderArticleMenu());
+    hook.doneEach(() => {
+      if (requestedSlug()) document.querySelector(".markdown-section > h1")?.classList.add("published-article-title");
+      renderArticleMenu();
+    });
   };
   window.$docsify = window.$docsify || {};
   window.$docsify.plugins = [...(window.$docsify.plugins || []), docsifyPlugin];
@@ -266,31 +377,35 @@
     if (!file) return;
     try {
       document.getElementById("article-content").value = await file.text();
-      uploadStatus.textContent = `Loaded ${file.name}. Attach any referenced images below.`;
+      uploadStatus.textContent = `已读取 ${file.name}。请在下方选择正文引用的图片。`;
     } catch (error) {
-      uploadStatus.textContent = `Could not read Markdown file: ${error.message}`;
+      uploadStatus.textContent = `读取失败：${error.message}`;
     }
   });
   uploadForm.addEventListener("submit", async event => {
-    event.preventDefault(); uploadStatus.textContent = "Saving…";
+    event.preventDefault(); uploadStatus.textContent = "正在上传图片并保存文章…";
     const { data: sessionData } = await supabaseClient.auth.getSession();
     const user = sessionData?.session?.user;
-    if (!isSiteOwner(user)) { uploadStatus.textContent = "Only the authorized site owner can publish."; return; }
+    if (!isSiteOwner(user)) { uploadStatus.textContent = "请先登录管理员账号再发布文章。"; return; }
     const title = document.getElementById("article-title").value.trim();
     const slug = document.getElementById("article-slug").value.trim().toLowerCase();
     const body = document.getElementById("article-content").value;
     const images = [...document.getElementById("article-image").files];
-    if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) { uploadStatus.textContent = "Use a URL slug with lowercase letters, numbers, and single hyphens."; return; }
-    if (!title || !body.trim()) { uploadStatus.textContent = "Enter an article title and Markdown content."; return; }
-    if (images.some(image => !image.type.startsWith("image/") || image.size > MAX_IMAGE_BYTES)) { uploadStatus.textContent = "Each attachment must be an image no larger than 5 MB."; return; }
+    if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) { uploadStatus.textContent = "短名请只用小写字母、数字和连字符。"; return; }
+    if (!title || !body.trim()) { uploadStatus.textContent = "请填写标题和 Markdown 正文。"; return; }
+    if (images.length > MAX_ARTICLE_IMAGES) { uploadStatus.textContent = `一次最多添加 ${MAX_ARTICLE_IMAGES} 张图片。`; return; }
+    if (images.some(image => !image.type.startsWith("image/") || image.size > MAX_IMAGE_BYTES)) { uploadStatus.textContent = "每张图片不能超过 10 MB。"; return; }
+    if (images.reduce((total, image) => total + image.size, 0) > MAX_TOTAL_IMAGE_BYTES) { uploadStatus.textContent = "图片总大小不能超过 50 MB。"; return; }
     const saveButton = document.getElementById("article-save"); saveButton.disabled = true;
     try {
       let content = body;
-      for (const image of images) {
+      for (const [imageIndex, image] of images.entries()) {
+        uploadStatus.textContent = `正在上传图片 ${imageIndex + 1}/${images.length}…`;
         const safeName = image.name.replace(/[^a-zA-Z0-9._-]/g, "-");
         const imagePath = `${slug}/${Date.now()}-${safeName}`;
-        const { error: uploadError } = await supabaseClient.storage.from(IMAGE_BUCKET).upload(imagePath, image, { contentType: image.type, upsert: false });
-        if (uploadError) throw uploadError;
+        await uploadArticleImage(imagePath, image, percent => {
+          uploadStatus.textContent = `正在上传图片 ${imageIndex + 1}/${images.length}（${percent}%）…`;
+        });
         const imageUrl = supabaseClient.storage.from(IMAGE_BUCKET).getPublicUrl(imagePath).data.publicUrl;
         const escapedImageName = [...image.name].map(character => ".*+?^${}()|[]\\".includes(character) ? `\\${character}` : character).join("");
         const reference = new RegExp(`(!\\[[^\\]]*\\]\\()${escapedImageName}(\\))`, "g");
@@ -301,12 +416,14 @@
           content += `\n\n![${image.name.replace(/[\[\]]/g, "")}](${imageUrl})`;
         }
       }
+      uploadStatus.textContent = "正在保存文章…";
       const { error } = await supabaseClient.from(ARTICLE_TABLE).upsert({ slug, title, content, updated_at: new Date().toISOString() }, { onConflict: "slug" });
       if (error) throw error;
+      invalidateArticleList();
       await renderArticleMenu();
       uploadDialog.close();
       location.hash = `/published?slug=${encodeURIComponent(slug)}`;
-    } catch (error) { uploadStatus.textContent = `Could not publish: ${error.message}`; }
+    } catch (error) { uploadStatus.textContent = `发布失败：${error.message}`; }
     finally { saveButton.disabled = false; }
   });
 })();

@@ -18,8 +18,9 @@
     .owner-dialog textarea { min-height: 160px; }
     .owner-dialog [role="group"] { display: flex; gap: 8px; }
     .owner-dialog button { padding: 8px 12px; cursor: pointer; }
-    .owner-dialog p { overflow-wrap: anywhere; }
-    @media (max-width: 768px) { #owner-toolbar { top: 6px; right: 72px; gap: 4px; padding: 4px; } #owner-account-email { display: none; } }
+    .owner-dialog p, .owner-dialog small { overflow-wrap: anywhere; line-height: 1.5; }
+    .markdown-section .published-article-title { margin: 0 0 1.2em 0.4em; padding: 0.1em 0 0.1em 0.55em; border-left: 4px solid #42b983; }
+    @media (max-width: 768px) { #owner-toolbar { top: 6px; right: 72px; gap: 4px; padding: 4px; } #owner-account-email { display: none; } .markdown-section .published-article-title { margin-left: 0.15em; padding-left: 0.4em; } }
   </style>
 </head>
 <body>
@@ -28,7 +29,7 @@
     <span id="owner-account-email">Not signed in</span>
     <button type="button" id="owner-auth-open">Login / Register</button>
     <button type="button" id="owner-auth-logout" hidden>Log out</button>
-    <button type="button" id="article-upload-open" hidden>Upload article</button>
+    <button type="button" id="article-upload-open" hidden>发布文章</button>
   </div>
 
   <aside id="annotation-sidebar" aria-label="Text annotations">
@@ -58,21 +59,21 @@
 
   <dialog id="article-upload-dialog" class="owner-dialog">
     <form id="article-upload-form">
-      <h3>Publish an article</h3>
-      <label for="article-title">Article title</label>
+      <h3>发布文章</h3>
+      <label for="article-title">文章标题</label>
       <input id="article-title" maxlength="160" required>
-      <label for="article-slug">URL name (lowercase letters, numbers, hyphens)</label>
+      <label for="article-slug">网址短名（小写字母、数字和连字符）</label>
       <input id="article-slug" pattern="[a-z0-9]+([a-z0-9-]*[a-z0-9])?" required>
-      <small>Creates a short address such as <code>#/published?slug=my-article</code>. Reusing a name updates that article.</small>
-      <label for="article-markdown-file">Choose an existing Markdown file (optional)</label>
+      <small>用于生成文章网址，例如 <code>#/published?slug=my-article</code>。再次使用相同短名会更新原文章。</small>
+      <label for="article-markdown-file">选择已有 Markdown 文件（可选）</label>
       <input id="article-markdown-file" type="file" accept=".md,text/markdown,text/plain">
-      <label for="article-content">Markdown content</label>
+      <label for="article-content">Markdown 正文</label>
       <textarea id="article-content" required></textarea>
-      <small>Paste Markdown source here or select a .md file above. Attach images below; in your Markdown, reference an attached filename like <code>![Diagram](diagram.png)</code> to place it inline.</small>
-      <label for="article-image">Attach images (optional, max 5 MB each)</label>
+      <small>可直接粘贴 Markdown 源码，或选择 .md 文件。图片要插在正文中时，写 <code>![说明](photo.jpg)</code>，并上传同名图片。</small>
+      <label for="article-image">添加图片（最多 5 张，每张不超过 10 MB）</label>
       <input id="article-image" type="file" accept="image/*" multiple>
       <p id="article-upload-status" aria-live="polite"></p>
-      <div role="group"><button type="submit" id="article-save">Publish</button><button type="button" id="article-upload-close">Cancel</button></div>
+      <div role="group"><button type="submit" id="article-save">发布</button><button type="button" id="article-upload-close">取消</button></div>
     </form>
   </dialog>
 
@@ -103,8 +104,9 @@
     };
   </script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="./annotation.js?v=20261022-deletefix1"></script>
-  <script src="./site-publisher.js?v=20261022-deletefix1"></script>
+  <script src="https://cdn.jsdelivr.net/npm/tus-js-client@4.3.1/dist/tus.min.js"></script>
+  <script src="./annotation.js?v=20261102-menuimages1"></script>
+  <script src="./site-publisher.js?v=20261102-menuimages1"></script>
   <script src="https://cdn.jsdelivr.net/npm/docsify@4"></script>
 </body>
 </html>

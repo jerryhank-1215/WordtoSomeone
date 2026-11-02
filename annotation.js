@@ -97,6 +97,8 @@
 
 
   let currentUserId = null;
+  let currentUserEmail = "";
+  const SITE_OWNER_EMAIL = "jerryandhank1215@gmail.com";
 
   let currentAnnotations = [];
 
@@ -273,6 +275,7 @@
       if (session?.user) {
 
         currentUserId = session.user.id;
+        currentUserEmail = session.user.email?.toLowerCase() || "";
 
         return currentUserId;
 
@@ -299,6 +302,7 @@
 
 
       currentUserId = data.user?.id ?? data.session?.user?.id ?? null;
+      currentUserEmail = data.user?.email?.toLowerCase() || data.session?.user?.email?.toLowerCase() || "";
 
 
 
@@ -1062,9 +1066,9 @@
 
 
 
-    // 只显示当前用户自己评论的删除按钮
+    // 评论作者和站点所有者可以看到删除按钮
 
-    if (currentUserId && annotation.user_id === currentUserId) {
+    if (canDeleteAnnotation(annotation)) {
 
       const deleteButton = document.createElement("button");
 
@@ -1150,7 +1154,7 @@
 
     }
 
-    if (currentUserId && reply.user_id === currentUserId) {
+    if (canDeleteAnnotation(reply)) {
 
       const remove = document.createElement("button");
 
@@ -2170,91 +2174,33 @@
 
 
 
-  async function deleteAnnotation(annotationId) {
+  function canDeleteAnnotation(annotation) {
+    return Boolean(currentUserId && annotation && (
+      annotation.user_id === currentUserId || currentUserEmail === SITE_OWNER_EMAIL
+    ));
+  }
 
-    const annotation = [...currentAnnotations, ...currentReplies].find(
+  async function deleteAnnotation(annotationId) {
+    const annotation = [...currentAnnotations, ...currentReplies].find(item => item.id === annotationId);
+    if (!annotation) return;
+    if (!canDeleteAnnotation(annotation)) {
+      alert("You can only delete your own comments. The site owner can remove comments from the site.");
+      return;
+    }
+    if (!window.confirm("Are you sure you want to delete this comment?")) return;
+    try {
+      let deletion = supabaseClient.from("annotations").delete().eq("id", annotationId);
+      if (annotation.user_id === currentUserId) deletion = deletion.eq("user_id", currentUserId);
+      const { error } = await deletion;
+      if (error) throw error;
+      await refresh();
+    } catch (error) {
+      console.error("[Annotations] 删除评论失败：", error);
+      alert("Could not delete the comment: " + (error.message || "Please check your connection and database permissions."));
+    }
+  }
 
-      (item) => item.id === annotationId
-
-    );
-
-
-
-    if (!annotation) return;
-
-
-
-    if (!currentUserId || annotation.user_id !== currentUserId) {
-
-      alert("You can only delete your own comments.");
-
-      return;
-
-    }
-
-
-
-    const confirmed = window.confirm(
-
-      "Are you sure you want to delete this comment?"
-
-    );
-
-
-
-    if (!confirmed) return;
-
-
-
-    try {
-
-      const {
-
-        error
-
-      } = await supabaseClient
-
-        .from("annotations")
-
-        .delete()
-
-        .eq("id", annotationId)
-
-        .eq("user_id", currentUserId);
-
-
-
-      if (error) {
-
-        throw error;
-
-      }
-
-
-
-      await refresh();
-
-    } catch (error) {
-
-      console.error("[Annotations] 删除评论失败：", error);
-
-
-
-      alert(
-
-        "Could not delete the comment. Please check your connection and permissions."
-
-      );
-
-    }
-
-  }
-
-
-
-  // ============================================================
-
-  // 17. 选中文字并打开评论对话框
+    // 17. 选中文字并打开评论对话框
 
   // ============================================================
 
@@ -2922,7 +2868,13 @@
 
   // 供外部脚本调用
 
-  window.annotationSystem = {
+  supabaseClient.auth.onAuthStateChange((_event, session) => {
+    currentUserId = session?.user?.id || null;
+    currentUserEmail = session?.user?.email?.toLowerCase() || "";
+    setTimeout(() => refresh(), 0);
+  });
+
+  window.annotationSystem = {
 
     refresh,
 
