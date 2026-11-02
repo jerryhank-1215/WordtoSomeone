@@ -44,6 +44,7 @@
   let cachedArticlesRevision = -1;
   let articleDataRevision = 0;
   let articleListRequest = null;
+  let isPublishing = false;
 
   function isSiteOwner(user) {
     return Boolean(user && !user.is_anonymous && user.email?.trim().toLowerCase() === OWNER_EMAIL);
@@ -99,8 +100,15 @@
   }
   authOpen.addEventListener("click", openAuth);
   logoutButton.addEventListener("click", async () => {
-    const { error } = await supabaseClient.auth.signOut();
-    if (error) authStatus.textContent = error.message;
+    logoutButton.disabled = true;
+    try {
+      const { error } = await supabaseClient.auth.signOut({ scope: "local" });
+      if (error) throw error;
+    } catch (error) {
+      window.alert(`退出登录失败：${error.message}`);
+    } finally {
+      logoutButton.disabled = false;
+    }
   });
   authModes.forEach(button => button.addEventListener("click", () => setAuthMode(button.dataset.authMode)));
   authForm.addEventListener("submit", async event => {
@@ -318,7 +326,7 @@
     if (error) throw error;
   }
 
-  async function uploadArticleImage(path, file, onProgress) {
+  async function uploadArticleImage(path, file, onProgress, accessToken) {
     const RESUMABLE_THRESHOLD = 6 * 1024 * 1024;
     if (file.size <= RESUMABLE_THRESHOLD || !window.tus?.Upload) {
       const { error } = await supabaseClient.storage.from(IMAGE_BUCKET).upload(path, file, {
@@ -330,14 +338,12 @@
       return;
     }
 
-    const { data, error } = await supabaseClient.auth.getSession();
-    if (error) throw error;
-    if (!data.session?.access_token) throw new Error("管理员登录已过期，请重新登录后上传。");
+    if (!accessToken) throw new Error("管理员登录已过期，请重新登录后上传。");
     await new Promise((resolve, reject) => {
       const upload = new window.tus.Upload(file, {
         endpoint: "https://tmktgmoqdvsdenffsolt.storage.supabase.co/storage/v1/upload/resumable",
         retryDelays: [0, 3000, 5000, 10000, 20000],
-        headers: { authorization: `Bearer ${data.session.access_token}` },
+        headers: { authorization: `Bearer ${accessToken}` },
         uploadDataDuringCreation: true,
         removeFingerprintOnSuccess: true,
         chunkSize: RESUMABLE_THRESHOLD,
@@ -396,33 +402,32 @@
     }
   });
   uploadForm.addEventListener("submit", async event => {
-    event.preventDefault(); uploadStatus.textContent = "正在上传图片并保存文章…";
-    let user = null;
+    event.preventDefault();
+    if (isPublishing) return;
+    isPublishing = true;
+    const saveButton = document.getElementById("article-save");
+    saveButton.disabled = true;
+    uploadStatus.textContent = "正在检查登录并准备发布…";
     try {
-      const { data, error } = await supabaseClient.auth.getUser();
+      const { data, error } = await supabaseClient.auth.getSession();
       if (error) throw error;
-      user = data.user;
-    } catch (error) {
-      uploadStatus.textContent = `无法确认登录状态：${error.message}`;
-      return;
-    }
-    currentUser = user;
-    updateAccount(user);
-    if (!isSiteOwner(user)) {
-      uploadStatus.textContent = `当前账号（${user?.email || "未登录"}）没有发布权限，请使用 ${OWNER_EMAIL} 登录。`;
-      return;
-    }
-    const title = document.getElementById("article-title").value.trim();
-    const slug = document.getElementById("article-slug").value.trim().toLowerCase();
-    const body = document.getElementById("article-content").value;
-    const images = [...document.getElementById("article-image").files];
-    if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) { uploadStatus.textContent = "短名请只用小写字母、数字和连字符。"; return; }
-    if (!title || !body.trim()) { uploadStatus.textContent = "请填写标题和 Markdown 正文。"; return; }
-    if (images.length > MAX_ARTICLE_IMAGES) { uploadStatus.textContent = `一次最多添加 ${MAX_ARTICLE_IMAGES} 张图片。`; return; }
-    if (images.some(image => !image.type.startsWith("image/") || image.size > MAX_IMAGE_BYTES)) { uploadStatus.textContent = "每张图片不能超过 10 MB。"; return; }
-    if (images.reduce((total, image) => total + image.size, 0) > MAX_TOTAL_IMAGE_BYTES) { uploadStatus.textContent = "图片总大小不能超过 50 MB。"; return; }
-    const saveButton = document.getElementById("article-save"); saveButton.disabled = true;
-    try {
+      const session = data.session;
+      const user = session?.user || null;
+      currentUser = user;
+      updateAccount(user);
+      if (!isSiteOwner(user)) {
+        throw new Error(`当前账号（${user?.email || "未登录"}）没有发布权限，请使用 ${OWNER_EMAIL} 登录。`);
+      }
+      const title = document.getElementById("article-title").value.trim();
+      const slug = document.getElementById("article-slug").value.trim().toLowerCase();
+      const body = document.getElementById("article-content").value;
+      const images = [...document.getElementById("article-image").files];
+      if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) throw new Error("短名请只用小写字母、数字和连字符。");
+      if (!title || !body.trim()) throw new Error("请填写标题和 Markdown 正文。");
+      if (images.length > MAX_ARTICLE_IMAGES) throw new Error(`一次最多添加 ${MAX_ARTICLE_IMAGES} 张图片。`);
+      if (images.some(image => !image.type.startsWith("image/") || image.size > MAX_IMAGE_BYTES)) throw new Error("每张图片不能超过 10 MB。");
+      if (images.reduce((total, image) => total + image.size, 0) > MAX_TOTAL_IMAGE_BYTES) throw new Error("图片总大小不能超过 50 MB。");
+
       let content = body;
       for (const [imageIndex, image] of images.entries()) {
         uploadStatus.textContent = `正在上传图片 ${imageIndex + 1}/${images.length}…`;
@@ -430,7 +435,7 @@
         const imagePath = `${slug}/${Date.now()}-${safeName}`;
         await uploadArticleImage(imagePath, image, percent => {
           uploadStatus.textContent = `正在上传图片 ${imageIndex + 1}/${images.length}（${percent}%）…`;
-        });
+        }, session.access_token);
         const imageUrl = supabaseClient.storage.from(IMAGE_BUCKET).getPublicUrl(imagePath).data.publicUrl;
         const escapedImageName = [...image.name].map(character => ".*+?^${}()|[]\\".includes(character) ? `\\${character}` : character).join("");
         const reference = new RegExp(`(!\\[[^\\]]*\\]\\()${escapedImageName}(\\))`, "g");
@@ -442,13 +447,17 @@
         }
       }
       uploadStatus.textContent = "正在保存文章…";
-      const { error } = await supabaseClient.from(ARTICLE_TABLE).upsert({ slug, title, content, updated_at: new Date().toISOString() }, { onConflict: "slug" });
-      if (error) throw error;
+      const { error: saveError } = await supabaseClient.from(ARTICLE_TABLE).upsert({ slug, title, content, updated_at: new Date().toISOString() }, { onConflict: "slug" });
+      if (saveError) throw saveError;
       invalidateArticleList();
       await renderArticleMenu();
       uploadDialog.close();
       location.hash = `/published?slug=${encodeURIComponent(slug)}`;
-    } catch (error) { uploadStatus.textContent = `发布失败：${error.message}`; }
-    finally { saveButton.disabled = false; }
+    } catch (error) {
+      uploadStatus.textContent = `发布失败：${error.message}`;
+    } finally {
+      isPublishing = false;
+      saveButton.disabled = false;
+    }
   });
 })();
