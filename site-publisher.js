@@ -172,28 +172,28 @@
     try {
       const articles = await listArticles();
       const list = document.createElement("ul");
-      articles.forEach(article => {
+      articles.forEach(articleItem => {
         const item = document.createElement("li"), link = document.createElement("a");
-        link.href = `#/published?slug=${encodeURIComponent(article.slug)}`;
-        link.textContent = article.title;
+        link.href = `#/published?slug=${encodeURIComponent(articleItem.slug)}`;
+        link.textContent = articleItem.title;
         item.appendChild(link);
         if (isSiteOwner(currentUser)) {
           const remove = document.createElement("button");
           remove.type = "button";
           remove.className = "article-delete-button";
           remove.textContent = "Delete";
-          remove.setAttribute("aria-label", `Delete article ${article.title}`);
+          remove.setAttribute("aria-label", `Delete article ${articleItem.title}`);
           remove.addEventListener("click", async event => {
             event.preventDefault();
             event.stopPropagation();
-            if (!window.confirm(`Delete “${article.title}”?`)) return;
+            if (!window.confirm(`Delete “${articleItem.title}”?`)) return;
             remove.disabled = true;
             let articleContent;
             try {
-              const { data: articleRecord, error: readError } = await supabaseClient.from(ARTICLE_TABLE).select("content").eq("slug", article.slug).maybeSingle();
+              const { data: articleRecord, error: readError } = await supabaseClient.from(ARTICLE_TABLE).select("content").eq("slug", articleItem.slug).maybeSingle();
               if (readError) throw readError;
               articleContent = articleRecord?.content || "";
-              const { error } = await supabaseClient.from(ARTICLE_TABLE).delete().eq("slug", article.slug);
+              const { error } = await supabaseClient.from(ARTICLE_TABLE).delete().eq("slug", articleItem.slug);
               if (error) throw error;
             } catch (error) {
               remove.disabled = false;
@@ -201,9 +201,9 @@
               return;
             }
             await renderArticleMenu();
-            if (requestedSlug() === article.slug) location.hash = "/";
+            if (requestedSlug() === articleItem.slug) location.hash = "/";
             try {
-              await removeArticleImages(article.slug, articleContent);
+              await removeArticleImages(articleItem.slug, articleContent);
             } catch (error) {
               console.warn("[Publisher] Article deleted, but image cleanup failed:", error);
               window.alert(`The article was deleted, but some stored images could not be removed: ${error.message}`);
