@@ -251,85 +251,32 @@
 
 
 
-  async function ensureGuestSession() {
+  let guestSessionPromise = null;
 
-    try {
-
-      const {
-
-        data: { session },
-
-        error: sessionError
-
-      } = await supabaseClient.auth.getSession();
-
-
-
-      if (sessionError) {
-
-        throw sessionError;
-
-      }
-
-
-
-      if (session?.user) {
-
-        currentUserId = session.user.id;
-        currentUserEmail = session.user.email?.toLowerCase() || "";
-
-        return currentUserId;
-
-      }
-
-
-
-      const {
-
-        data,
-
-        error
-
-      } = await supabaseClient.auth.signInAnonymously();
-
-
-
-      if (error) {
-
-        throw error;
-
-      }
-
-
-
-      currentUserId = data.user?.id ?? data.session?.user?.id ?? null;
-      currentUserEmail = data.user?.email?.toLowerCase() || data.session?.user?.email?.toLowerCase() || "";
-
-
-
-      if (!currentUserId) {
-
-        throw new Error("匿名登录成功，但没有取得 user ID。");
-
-      }
-
-
-
-      return currentUserId;
-
-    } catch (error) {
-
-      console.error("[Annotations] 匿名登录失败：", error);
-
-      throw error;
-
-    }
-
-  }
-
-
-
-  // ============================================================
+  function ensureGuestSession() {
+    if (guestSessionPromise) return guestSessionPromise;
+    guestSessionPromise = (async () => {
+      try {
+        const { data: { session }, error: sessionError } = await supabaseClient.auth.getSession();
+        if (sessionError) throw sessionError;
+        if (session?.user) {
+          currentUserId = session.user.id;
+          currentUserEmail = session.user.email?.toLowerCase() || "";
+          return currentUserId;
+        }
+        const { data, error } = await supabaseClient.auth.signInAnonymously();
+        if (error) throw error;
+        currentUserId = data.user?.id ?? data.session?.user?.id ?? null;
+        currentUserEmail = data.user?.email?.toLowerCase() || data.session?.user?.email?.toLowerCase() || "";
+        if (!currentUserId) throw new Error("匿名登录成功，但没有取得 user ID。");
+        return currentUserId;
+      } catch (error) {
+        console.error("[Annotations] 匿名登录失败：", error);
+        throw error;
+      }
+    })().finally(() => { guestSessionPromise = null; });
+    return guestSessionPromise;
+  }
 
   // 6. Range 与文本偏移量转换
 
@@ -1213,7 +1160,7 @@
 
     if (existing) {
 
-      if (!isMobile()) existing.querySelector("textarea")?.focus();
+      if (!isMobile()) existing.querySelector("textarea")?.focus({ preventScroll: true });
 
       return;
 
@@ -1335,7 +1282,7 @@
 
     // the user's direct tap on the textarea open and retain the keyboard.
 
-    if (!isMobile()) input.focus();
+    if (!isMobile()) input.focus({ preventScroll: true });
 
   }
 
@@ -1783,55 +1730,86 @@
 
 
 
-  function renderAnnotations() {
+  function renderAnnotations() {
+    const savedScrollY = window.scrollY;
+    const savedScrollX = window.scrollX;
+    const savedSidebarScrollTop = sidebar.scrollTop;
+    const savedReplyForms = new Map();
+    const expandedReplyIds = new Set();
+    list.querySelectorAll(".annotation-card").forEach((oldCard) => {
+      const annotationId = oldCard.dataset.annotationId;
+      const thread = oldCard.querySelector(".annotation-replies");
+      const form = thread?.querySelector(".annotation-reply-form");
+      const textarea = form?.querySelector("textarea");
+      if (thread?.querySelector(".annotation-reply-list")?.hidden === false) expandedReplyIds.add(annotationId);
+      if (form) savedReplyForms.set(annotationId, {
+        form,
+        focused: document.activeElement === textarea,
+        selectionStart: textarea?.selectionStart ?? null,
+        selectionEnd: textarea?.selectionEnd ?? null
+      });
+    });
 
-    list.replaceChildren();
+    list.replaceChildren();
+    if (currentAnnotations.length === 0) {
+      const empty = document.createElement("p");
+      empty.className = "annotation-empty";
+      empty.textContent = "No comments yet.";
+      list.appendChild(empty);
+      list.style.minHeight = "0";
+      requestAnimationFrame(() => {
+        window.scrollTo(savedScrollX, savedScrollY);
+        sidebar.scrollTop = savedSidebarScrollTop;
+      });
+      return;
+    }
+
+    currentAnnotations.forEach((annotation) => {
+      const card = createAnnotationCard(annotation);
+      list.appendChild(card);
+      if (expandedReplyIds.has(annotation.id)) {
+        const replyList = card.querySelector(".annotation-reply-list");
+        const toggle = card.querySelector(".annotation-replies-toggle");
+        if (replyList) replyList.hidden = false;
+        toggle?.setAttribute("aria-expanded", "true");
+      }
+      const saved = savedReplyForms.get(annotation.id);
+      if (!saved) return;
+      const thread = card.querySelector(".annotation-replies");
+      const replyList = thread?.querySelector(".annotation-reply-list");
+      const toggle = thread?.querySelector(".annotation-replies-toggle");
+      if (!thread) return;
+      thread.appendChild(saved.form);
+      if (saved.form) {
+        replyList.hidden = false;
+        toggle?.setAttribute("aria-expanded", "true");
+      }
+      if (saved.focused) {
+        const textarea = saved.form.querySelector("textarea");
+        requestAnimationFrame(() => {
+          textarea?.focus({ preventScroll: true });
+          if (textarea && saved.selectionStart !== null) {
+            textarea.setSelectionRange(saved.selectionStart, saved.selectionEnd);
+          }
+        });
+      }
+    });
+
+    requestAnimationFrame(() => {
+      window.scrollTo(savedScrollX, savedScrollY);
+      sidebar.scrollTop = savedSidebarScrollTop;
+      const root = getArticleRoot();
+      if (root) positionCards(root);
+    });
+  }
 
 
+  // 14. 更新评论显示与布局
 
-    if (currentAnnotations.length === 0) {
-
-      const empty = document.createElement("p");
-
+  // ============================================================
 
 
-      empty.className = "annotation-empty";
-
-      empty.textContent = "No comments yet.";
-
-
-
-      list.appendChild(empty);
-
-      list.style.minHeight = "0";
-
-
-
-      return;
-
-    }
-
-
-
-    currentAnnotations.forEach((annotation) => {
-
-      list.appendChild(createAnnotationCard(annotation));
-
-    });
-
-  }
-
-
-
-  // ============================================================
-
-  // 14. 更新评论显示与布局
-
-  // ============================================================
-
-
-
-  function updateAnnotationLayout() {
+  function updateAnnotationLayout() {
 
     const contentSection = document.querySelector(
 
@@ -2663,67 +2641,39 @@
 
 
 
-  async function refresh() {
+  let refreshPromise = null;
+  let refreshQueued = false;
 
-    const root = getArticleRoot();
-
-
-
-    if (!root) {
-
-      return;
-
-    }
-
-
-
-    currentPagePath = getCurrentPagePath();
-
-
-
-    try {
-
-      await ensureGuestSession();
-
-
-
-      await loadAnnotations(currentPagePath);
-
-
-
-      renderAnnotations();
-
-      applyHighlights();
-
-      updateReplyNotices();
+  async function refresh() {
+    if (refreshPromise) {
+      refreshQueued = true;
+      return refreshPromise;
+    }
+    refreshPromise = (async () => {
+      do {
+        refreshQueued = false;
+        const root = getArticleRoot();
+        if (!root) return;
+        currentPagePath = getCurrentPagePath();
+        try {
+          await ensureGuestSession();
+          subscribeToPageChanges(currentPagePath);
+          await loadAnnotations(currentPagePath);
+          renderAnnotations();
+          applyHighlights();
+          updateReplyNotices();
+          await new Promise(resolve => requestAnimationFrame(resolve));
+          const currentRoot = getArticleRoot();
+          if (currentRoot) positionCards(currentRoot);
+        } catch (error) {
+          console.error("[Annotations] 刷新失败：", error);
+        }
+      } while (refreshQueued);
+    })().finally(() => { refreshPromise = null; });
+    return refreshPromise;
+  }
 
 
-
-      requestAnimationFrame(() => {
-
-        const currentRoot = getArticleRoot();
-
-
-
-        if (currentRoot) {
-
-          positionCards(currentRoot);
-
-        }
-
-      });
-
-    } catch (error) {
-
-      console.error("[Annotations] 刷新失败：", error);
-
-    }
-
-  }
-
-
-
-  // ============================================================
   // Keep comments and replies in sync across open browsers.
   function subscribeToPageChanges(pagePath) {
     if (realtimeChannel && realtimePagePath === pagePath) return;
@@ -2874,6 +2824,8 @@
     currentUserEmail = session?.user?.email?.toLowerCase() || "";
     setTimeout(() => refresh(), 0);
   });
+
+  sidebar.addEventListener("scroll", scheduleReposition, { passive: true });
 
   window.annotationSystem = {
 

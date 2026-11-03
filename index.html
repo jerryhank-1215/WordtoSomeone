@@ -19,8 +19,8 @@
     .owner-dialog [role="group"] { display: flex; gap: 8px; }
     .owner-dialog button { padding: 8px 12px; cursor: pointer; }
     .owner-dialog p, .owner-dialog small { overflow-wrap: anywhere; line-height: 1.5; }
-    .markdown-section .published-article-title { margin: 0 0 1.2em 0.4em; padding: 0.1em 0 0.1em 0.55em; border-left: 4px solid #42b983; }
-    @media (max-width: 768px) { #owner-toolbar { top: 6px; right: 72px; gap: 4px; padding: 4px; } #owner-account-email { display: none; } .markdown-section .published-article-title { margin-left: 0.15em; padding-left: 0.4em; } }
+    #app .markdown-section h1.published-article-title { display: block; box-sizing: border-box; width: calc(100% - 1rem); margin: 0 0 1.2em 1rem !important; padding: .15em 0 .15em .7em !important; border-left: 4px solid #42b983; overflow-wrap: anywhere; }
+    @media (max-width: 768px) { #owner-toolbar { top: 6px; right: 72px; gap: 4px; padding: 4px; } #owner-account-email { display: none; } #app .markdown-section h1.published-article-title { width: calc(100% - .25rem); margin-left: .25rem !important; padding-left: .4em !important; } }
   </style>
 </head>
 <body>
@@ -97,6 +97,7 @@
       name: 'Word from Fernando',
       repo: '',
       loadSidebar: true,
+      alias: { '/.*/_sidebar.md': '/_sidebar.md' },
       subMaxLevel: 3,
       plugins: [function (hook) {
         hook.doneEach(function () { if (window.annotationSystem) window.annotationSystem.refresh(); });
@@ -105,8 +106,8 @@
   </script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/tus-js-client@4.3.1/dist/tus.min.js"></script>
-  <script src="./annotation.js?v=20261102-ratelimit-fix1"></script>
-  <script src="./site-publisher.js?v=20261102-ratelimit-fix1"></script>
+  <script src="./annotation.js?v=20261102-stability2"></script>
+  <script src="./site-publisher.js?v=20261102-stability2"></script>
   <script src="https://cdn.jsdelivr.net/npm/docsify@4"></script>
 </body>
 </html>

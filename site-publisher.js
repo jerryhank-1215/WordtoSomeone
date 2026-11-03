@@ -45,6 +45,7 @@
   let articleDataRevision = 0;
   let articleListRequest = null;
   let isPublishing = false;
+  let articleRealtimeChannel = null;
 
   function isSiteOwner(user) {
     return Boolean(user && !user.is_anonymous && user.email?.trim().toLowerCase() === OWNER_EMAIL);
@@ -214,12 +215,34 @@
     cachedArticles = null;
     cachedArticlesRevision = -1;
   }
+  function subscribeToArticleChanges() {
+    if (articleRealtimeChannel) return;
+    articleRealtimeChannel = supabaseClient
+      .channel("site-articles-menu")
+      .on("postgres_changes", { event: "*", schema: "public", table: ARTICLE_TABLE }, () => {
+        invalidateArticleList();
+        renderArticleMenu();
+      })
+      .subscribe(status => {
+        if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+          console.warn("[Publisher] Article live updates unavailable; the menu will update on navigation.");
+        }
+      });
+  }
   function renderArticleMenu() {
     articleMenuRevision += 1;
     if (articleMenuRenderPromise) return articleMenuRenderPromise;
     articleMenuRenderPromise = (async () => {
       while (articleMenuRenderedRevision < articleMenuRevision) {
         const revision = articleMenuRevision;
+        let articles = [];
+        let loadError = null;
+        try { articles = await listArticles(); }
+        catch (error) { loadError = error; }
+        if (revision !== articleMenuRevision) continue;
+
+        // Docsify can replace the sidebar while a database request is pending.
+        // Resolve the nav after the await so the menu is attached to the live sidebar.
         const nav = document.querySelector(".sidebar-nav");
         if (!nav) { articleMenuRenderedRevision = revision; break; }
         let section = document.getElementById("uploaded-articles-menu");
@@ -228,12 +251,6 @@
           section.id = "uploaded-articles-menu";
           nav.appendChild(section);
         }
-
-        let articles = [];
-        let loadError = null;
-        try { articles = await listArticles(); }
-        catch (error) { loadError = error; }
-        if (revision !== articleMenuRevision) continue;
 
         const owner = isSiteOwner(currentUser);
         const signature = JSON.stringify({ articles, owner, error: loadError?.message || "" });
@@ -378,12 +395,13 @@
         }).catch(error => next(`# Article could not be loaded\n\n${error.message}`));
     });
     hook.doneEach(() => {
-      if (requestedSlug()) document.querySelector(".markdown-section > h1")?.classList.add("published-article-title");
+      if (requestedSlug()) document.querySelector("#app .markdown-section h1")?.classList.add("published-article-title");
       renderArticleMenu();
     });
   };
   window.$docsify = window.$docsify || {};
   window.$docsify.plugins = [...(window.$docsify.plugins || []), docsifyPlugin];
+  subscribeToArticleChanges();
 
   uploadOpen.addEventListener("click", () => {
     uploadStatus.textContent = "";
