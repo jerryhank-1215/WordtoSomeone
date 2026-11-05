@@ -2,6 +2,9 @@
 
   "use strict";
 
+  if (window.__wordFromFernandoAnnotationsLoaded) return;
+  window.__wordFromFernandoAnnotationsLoaded = true;
+
 
 
   // ============================================================

@@ -1,5 +1,7 @@
 (() => {
   "use strict";
+  if (window.__wordFromFernandoPublisherLoaded) return;
+  window.__wordFromFernandoPublisherLoaded = true;
   const OWNER_EMAIL = "jerryandhank1215@gmail.com";
   const ARTICLE_TABLE = "site_articles";
   const IMAGE_BUCKET = "site-article-images";
@@ -15,6 +17,7 @@
   const accountEmail = document.getElementById("owner-account-email");
   const authOpen = document.getElementById("owner-auth-open");
   const logoutButton = document.getElementById("owner-auth-logout");
+  const articleHomeButton = document.getElementById("article-list-home");
   const uploadOpen = document.getElementById("article-upload-open");
   const authDialog = document.getElementById("owner-auth-dialog");
   const authForm = document.getElementById("owner-auth-form");
@@ -100,6 +103,7 @@
     authStatus.textContent = "";
   }
   authOpen.addEventListener("click", openAuth);
+  articleHomeButton.addEventListener("click", () => { location.hash = "/"; });
   logoutButton.addEventListener("click", async () => {
     logoutButton.disabled = true;
     try {
@@ -189,6 +193,9 @@
     const route = location.hash.replace(/^#\/?/, "");
     const [path, query = ""] = route.split("?");
     return path === "published" ? new URLSearchParams(query).get("slug") : null;
+  }
+  function updateArticleHomeButton() {
+    articleHomeButton.hidden = !requestedSlug();
   }
   async function listArticles() {
     const revision = articleDataRevision;
@@ -395,6 +402,7 @@
         }).catch(error => next(`# Article could not be loaded\n\n${error.message}`));
     });
     hook.doneEach(() => {
+      updateArticleHomeButton();
       if (requestedSlug()) document.querySelector("#app .markdown-section h1")?.classList.add("published-article-title");
       renderArticleMenu();
     });
@@ -402,6 +410,8 @@
   window.$docsify = window.$docsify || {};
   window.$docsify.plugins = [...(window.$docsify.plugins || []), docsifyPlugin];
   subscribeToArticleChanges();
+  window.addEventListener("hashchange", updateArticleHomeButton);
+  updateArticleHomeButton();
 
   uploadOpen.addEventListener("click", () => {
     uploadStatus.textContent = "";
