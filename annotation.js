@@ -135,6 +135,9 @@
 
   let refreshTimer = null;
 
+  let realtimeChannel = null;
+  let realtimePagePath = "";
+
   let repositionTimer = null;
 
   let sidebarResizeObserver = null;
