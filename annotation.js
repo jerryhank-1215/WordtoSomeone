@@ -63,6 +63,7 @@
   const sidebar = document.getElementById("annotation-sidebar");
 
   const list = document.getElementById("annotation-list");
+  const loadStatus = document.getElementById("annotation-load-status");
 
   const dialog = document.getElementById("annotation-dialog");
 
@@ -83,6 +84,20 @@
   }
 
 
+
+  function setAnnotationLoadStatus(message = "") {
+    if (!loadStatus) return;
+    loadStatus.replaceChildren();
+    loadStatus.hidden = !message;
+    if (!message) return;
+    const text = document.createElement("span");
+    text.textContent = message;
+    const retry = document.createElement("button");
+    retry.type = "button";
+    retry.textContent = "重试加载评论";
+    retry.addEventListener("click", () => refresh());
+    loadStatus.append(text, document.createTextNode(" "), retry);
+  }
 
   // 保存评论栏原本的位置，桌面端恢复时会用到
 
@@ -703,9 +718,12 @@
 
         .in("reply_id", allNotificationIds);
 
-      if (readError) throw readError;
-
-      readReplyIds = new Set((reads || []).map((row) => row.reply_id));
+      if (readError) {
+        console.warn("[Annotations] Read receipts unavailable; comments will still be shown.", readError);
+        readReplyIds = new Set();
+      } else {
+        readReplyIds = new Set((reads || []).map((row) => row.reply_id));
+      }
 
 
 
@@ -715,7 +733,7 @@
 
       const hasCommentReadBaseline = currentAnnotations.some((item) => readReplyIds.has(item.id));
 
-      if (currentAnnotations.length && !hasCommentReadBaseline) {
+      if (!readError && currentAnnotations.length && !hasCommentReadBaseline) {
 
         await markRepliesRead(currentAnnotations);
 
@@ -2662,6 +2680,7 @@
           await ensureGuestSession();
           subscribeToPageChanges(currentPagePath);
           await loadAnnotations(currentPagePath);
+          setAnnotationLoadStatus("");
           renderAnnotations();
           applyHighlights();
           updateReplyNotices();
@@ -2670,6 +2689,7 @@
           if (currentRoot) positionCards(currentRoot);
         } catch (error) {
           console.error("[Annotations] 刷新失败：", error);
+          setAnnotationLoadStatus(`评论暂时无法加载（${error.message || error}）。数据库记录没有因此删除。`);
         }
       } while (refreshQueued);
     })().finally(() => { refreshPromise = null; });
