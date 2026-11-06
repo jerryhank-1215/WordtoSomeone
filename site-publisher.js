@@ -229,6 +229,7 @@
       .on("postgres_changes", { event: "*", schema: "public", table: ARTICLE_TABLE }, () => {
         invalidateArticleList();
         renderArticleMenu();
+        renderHomeArticleIndex();
       })
       .subscribe(status => {
         if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
@@ -313,6 +314,7 @@
                 }
                 invalidateArticleList();
                 await renderArticleMenu();
+                await renderHomeArticleIndex();
                 if (requestedSlug() === articleItem.slug) location.hash = "/";
                 try { await removeArticleImages(articleItem.slug, articleContent); }
                 catch (error) { window.alert(`文章已删除，但部分图片未能清理：${error.message}`); }
@@ -332,6 +334,58 @@
       if (articleMenuRenderedRevision < articleMenuRevision) renderArticleMenu();
     });
     return articleMenuRenderPromise;
+  }
+
+  async function renderHomeArticleIndex() {
+    const priorIndex = document.getElementById("home-article-index");
+    const homeRoute = ["", "/"].includes(location.hash.replace(/^#/, "").split("?")[0]);
+    if (!homeRoute || requestedSlug()) {
+      priorIndex?.remove();
+      return;
+    }
+
+    const articleRoot = document.querySelector("#app .markdown-section");
+    if (!articleRoot) return;
+    let section = priorIndex;
+    if (!section || !section.isConnected) {
+      section = document.createElement("section");
+      section.id = "home-article-index";
+      section.className = "markdown-section home-article-index";
+      articleRoot.insertAdjacentElement("afterend", section);
+    }
+
+    let articles = [];
+    let error = null;
+    try { articles = await listArticles(); }
+    catch (loadError) { error = loadError; }
+    if (requestedSlug() || !section.isConnected) return;
+
+    section.replaceChildren();
+    const heading = document.createElement("h2");
+    heading.textContent = "已发布文章";
+    section.appendChild(heading);
+    if (error) {
+      const message = document.createElement("p");
+      message.textContent = `暂时无法加载文章：${error.message}`;
+      section.appendChild(message);
+      return;
+    }
+    if (!articles.length) {
+      const empty = document.createElement("p");
+      empty.textContent = "还没有发布文章。";
+      section.appendChild(empty);
+      return;
+    }
+    const articleList = document.createElement("ul");
+    articles.forEach(article => {
+      const item = document.createElement("li");
+      const link = document.createElement("a");
+      link.href = `#/published?slug=${encodeURIComponent(article.slug)}`;
+      link.textContent = article.title;
+      item.appendChild(link);
+      articleList.appendChild(item);
+    });
+    section.appendChild(articleList);
   }
 
   async function removeArticleImages(slug, content) {
@@ -405,6 +459,7 @@
       updateArticleHomeButton();
       if (requestedSlug()) document.querySelector("#app .markdown-section h1")?.classList.add("published-article-title");
       renderArticleMenu();
+      renderHomeArticleIndex();
     });
   };
   window.$docsify = window.$docsify || {};
@@ -479,6 +534,7 @@
       if (saveError) throw saveError;
       invalidateArticleList();
       await renderArticleMenu();
+      await renderHomeArticleIndex();
       uploadDialog.close();
       location.hash = `/published?slug=${encodeURIComponent(slug)}`;
     } catch (error) {

@@ -134,6 +134,8 @@
 
 
   let refreshTimer = null;
+  let commentScrollSyncTimer = null;
+  let lastScrollSyncedAnnotationId = null;
 
   let realtimeChannel = null;
   let realtimePagePath = "";
@@ -1488,267 +1490,35 @@
 
 
 
- function positionCards(root) {
-
-  const cards = Array.from(list.querySelectorAll(".annotation-card"));
-
-
-
-  // Mobile: comments appear in normal document flow.
-
-  // Do not detach/reinsert cards here: doing so blurs focused textareas and
-
-  // makes mobile keyboards close immediately after opening a reply composer.
-
-  if (isMobile()) {
-
-    cards.forEach((card) => {
-
-      card.style.display = "";
-
-      card.style.position = "relative";
-
-      card.style.top = "auto";
-
-      card.style.bottom = "auto";
-
-      card.style.left = "auto";
-
-      card.style.right = "auto";
-
-      card.style.transform = "none";
-
-    });
-
-
-
-    list.style.minHeight = "0";
-
-    return;
-
-  }
-
-
-
-  // Restore only cards parked inside the collapsed off-screen groups. Normal
-
-  // cards stay in place so opening a reply form never loses keyboard focus.
-
-  const offscreenGroups = Array.from(list.querySelectorAll(".annotation-offscreen-group"));
-
-  const parkedCards = offscreenGroups.flatMap((group) => Array.from(group.querySelectorAll(".annotation-card")));
-
-  offscreenGroups.forEach((group) => group.remove());
-
-  parkedCards.forEach((card) => list.appendChild(card));
-
-  cards.forEach((card) => { card.style.display = ""; });
-
-
-
-  // Desktop: sort comments by their positions in the article.
-
-  const listRect = list.getBoundingClientRect();
-
-  const gap = 12;
-
-  const above = [];
-
-  const below = [];
-
-  const placements = [];
-
-
-
-  cards.forEach((card) => {
-
-      const annotation = currentAnnotations.find(
-
-        (item) => item.id === card.dataset.annotationId
-
-      );
-
-
-
-      if (!annotation) { below.push(card); return; }
-
-
-
-      const range = offsetToRange(
-
-        root,
-
-        annotation.start_offset,
-
-        annotation.end_offset
-
-      );
-
-
-
-      if (!range) { below.push(card); return; }
-
-
-
-      const rangeRect = range.getBoundingClientRect();
-
-
-
-      if (!rangeRect.height && !rangeRect.width) {
-
-        below.push(card);
-
-        return;
-
-      }
-
-
-
-      if (rangeRect.bottom < 0) { above.push(card); return; }
-
-      if (rangeRect.top > window.innerHeight) { below.push(card); return; }
-
-
-
-      // Desired position relative to the comments list.
-
-      const targetTop =
-
-        rangeRect.top - listRect.top + list.scrollTop;
-
-
-
-      placements.push({
-
-        card,
-
-        targetTop: Math.max(0, targetTop)
-
-      });
-
-  });
-
-
-
-  placements.sort((a, b) => a.targetTop - b.targetTop);
-
-
-
-  const makeOffscreenGroup = (label, items, className) => {
-
-    if (!items.length) return null;
-
-    const group = document.createElement("details");
-
-    group.className = `annotation-offscreen-group ${className}`;
-
-    const summary = document.createElement("summary");
-
-    summary.textContent = `${label} (${items.length})`;
-
-    group.appendChild(summary);
-
-    group.addEventListener("toggle", scheduleReposition);
-
-    items.forEach((card) => {
-
-      card.style.position = "relative";
-
-      card.style.top = "auto";
-
-      card.style.left = "auto";
-
-      card.style.right = "auto";
-
-      card.style.margin = "8px 0";
-
-      group.appendChild(card);
-
-    });
-
-    return group;
-
-  };
-
-  const aboveGroup = makeOffscreenGroup("Comments above this area", above, "is-above");
-
-  // Below-viewport comments wait for their anchors to enter view. They are
-
-  // restored on the next scroll pass instead of being piled into a footer.
-
-  below.forEach((card) => { card.style.display = "none"; });
-
-  if (aboveGroup) {
-
-    aboveGroup.style.position = "absolute";
-
-    aboveGroup.style.top = "0";
-
-    aboveGroup.style.left = "0";
-
-    aboveGroup.style.right = "0";
-
-    list.prepend(aboveGroup);
-
-  }
-
-  const topInset = aboveGroup ? aboveGroup.offsetHeight + gap : 0;
-
-
-
-  // Place cards in article order and prevent overlap.
-
-  let previousBottom = 0;
-
-
-
-  placements.forEach(({ card, targetTop }) => {
-
-    card.style.position = "absolute";
-
-    card.style.left = "0";
-
-    card.style.right = "0";
-
-    card.style.bottom = "auto";
-
-    card.style.transform = "none";
-
-
-
-    // Measure after setting the positioning mode.
-
-    const finalTop = Math.max(
-
-      targetTop + topInset,
-
-      previousBottom === 0 ? 0 : previousBottom + gap
-
-    );
-
-
-
-    card.style.top = `${finalTop}px`;
-
-
-
-    previousBottom = finalTop + card.offsetHeight;
-
-  });
-
-
-
-  // Reserve enough space for all positioned cards.
-
-  list.style.minHeight = `${previousBottom}px`;
-
-}
-
-
-
-  // ============================================================
-
-  // 13. 渲染评论列表
+  function positionCards() {
+    const parkedGroups = Array.from(list.querySelectorAll(".annotation-offscreen-group"));
+    parkedGroups.forEach((group) => {
+      const cards = Array.from(group.querySelectorAll(".annotation-card"));
+      cards.forEach((card) => list.appendChild(card));
+      group.remove();
+    });
+
+    list.querySelectorAll(".annotation-card").forEach((card) => {
+      card.style.display = "";
+      card.style.position = "relative";
+      card.style.top = "auto";
+      card.style.bottom = "auto";
+      card.style.left = "auto";
+      card.style.right = "auto";
+      card.style.width = "100%";
+      card.style.transform = "none";
+      card.style.margin = "12px 0";
+    });
+    list.style.minHeight = "0";
+  }
+
+
+  // 13. 渲染评论列表
+
+  // ============================================================
+
+
+  
 
   // ============================================================
 
@@ -2851,7 +2621,23 @@
     setTimeout(() => refresh(), 0);
   });
 
-  sidebar.addEventListener("scroll", scheduleReposition, { passive: true });
+  sidebar.addEventListener("scroll", () => {
+    if (isMobile()) return;
+    if (commentScrollSyncTimer) clearTimeout(commentScrollSyncTimer);
+    commentScrollSyncTimer = setTimeout(() => {
+      const header = sidebar.querySelector(".annotation-header");
+      const anchorLine = header ? header.getBoundingClientRect().bottom + 24 : sidebar.getBoundingClientRect().top + 24;
+      const cards = Array.from(list.querySelectorAll(".annotation-card"));
+      const visible = cards
+        .map(card => ({ card, rect: card.getBoundingClientRect() }))
+        .filter(item => item.rect.bottom > anchorLine && item.rect.top < sidebar.getBoundingClientRect().bottom)
+        .sort((a, b) => Math.abs(a.rect.top - anchorLine) - Math.abs(b.rect.top - anchorLine))[0];
+      const annotation = visible && currentAnnotations.find(item => item.id === visible.card.dataset.annotationId);
+      if (!annotation || annotation.id === lastScrollSyncedAnnotationId) return;
+      lastScrollSyncedAnnotationId = annotation.id;
+      scrollToAnnotation(annotation);
+    }, 120);
+  }, { passive: true });
 
   window.annotationSystem = {
 

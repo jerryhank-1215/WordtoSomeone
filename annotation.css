@@ -960,6 +960,23 @@
 
 }
 
+/* Keep the desktop comments list in normal flow so it can scroll independently. */
+@media screen and (min-width: 901px) {
+  #annotation-sidebar #annotation-list .annotation-card {
+    position: relative !important;
+    inset: auto !important;
+    width: 100% !important;
+    margin: 12px 0 !important;
+    transform: none !important;
+  }
+}
+
+.home-article-index {
+  margin-top: 24px !important;
+  padding-top: 18px !important;
+  border-top: 1px solid #e5e5e5;
+}
+
 
 
 
