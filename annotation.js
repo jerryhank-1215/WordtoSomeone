@@ -135,7 +135,13 @@
 
   let refreshTimer = null;
   let commentScrollSyncTimer = null;
+  let articleScrollSyncTimer = null;
   let lastScrollSyncedAnnotationId = null;
+  let lastArticleSyncedAnnotationId = null;
+  let syncLockSource = null;
+  let syncLockUntil = 0;
+  let userScrollSource = null;
+  let userScrollAt = 0;
 
   let realtimeChannel = null;
   let realtimePagePath = "";
@@ -705,7 +711,19 @@
 
     currentReplies = currentAnnotations.filter((item) => item.parent_id);
 
-    currentAnnotations = currentAnnotations.filter((item) => !item.parent_id);
+    currentAnnotations = currentAnnotations
+      .filter((item) => !item.parent_id)
+      .sort((a, b) => {
+        const getOffset = (item) => {
+          if (item.start_offset === null || item.start_offset === undefined || item.start_offset === "") return Number.MAX_SAFE_INTEGER;
+          const offset = Number(item.start_offset);
+          return Number.isInteger(offset) ? offset : Number.MAX_SAFE_INTEGER;
+        };
+        const aOffset = getOffset(a);
+        const bOffset = getOffset(b);
+        if (aOffset !== bOffset) return aOffset - bOffset;
+        return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+      });
 
 
 
@@ -1410,7 +1428,9 @@
 
   function scrollToAnnotation(annotation) {
 
-    const root = getArticleRoot();
+    beginScrollSync("comments");
+
+    const root = getArticleRoot();
 
 
 
@@ -2448,7 +2468,12 @@
         refreshQueued = false;
         const root = getArticleRoot();
         if (!root) return;
-        currentPagePath = getCurrentPagePath();
+        const nextPagePath = getCurrentPagePath();
+        if (currentPagePath !== nextPagePath) {
+          lastScrollSyncedAnnotationId = null;
+          lastArticleSyncedAnnotationId = null;
+        }
+        currentPagePath = nextPagePath;
         try {
           await ensureGuestSession();
           subscribeToPageChanges(currentPagePath);
@@ -2621,8 +2646,70 @@
     setTimeout(() => refresh(), 0);
   });
 
+  function beginScrollSync(source) {
+    syncLockSource = source;
+    syncLockUntil = Date.now() + 1200;
+  }
+
+  function markUserScroll(source) {
+    userScrollSource = source;
+    userScrollAt = Date.now();
+    syncLockSource = null;
+  }
+
+  function isRecentUserScroll(source) {
+    return userScrollSource === source && Date.now() - userScrollAt < 900;
+  }
+
+  function findVisibleCommentForArticle() {
+    const root = getArticleRoot();
+    if (!root) return null;
+    const targetY = window.innerHeight * 0.38;
+    let closest = null;
+    currentAnnotations.forEach((annotation) => {
+      const range = offsetToRange(root, annotation.start_offset, annotation.end_offset);
+      if (!range) return;
+      const rect = range.getBoundingClientRect();
+      if (!rect.height && !rect.width) return;
+      const distance = targetY < rect.top ? rect.top - targetY : targetY > rect.bottom ? targetY - rect.bottom : 0;
+      if (!closest || distance < closest.distance) closest = { annotation, distance };
+    });
+    return closest?.annotation || null;
+  }
+
+  function scrollCommentCardIntoView(annotation) {
+    const card = list.querySelector(`.annotation-card[data-annotation-id="${CSS.escape(annotation.id)}"]`);
+    if (!card) return;
+    const header = sidebar.querySelector(".annotation-header");
+    const headerBottom = header ? header.getBoundingClientRect().bottom : sidebar.getBoundingClientRect().top;
+    const cardRect = card.getBoundingClientRect();
+    const targetTop = sidebar.scrollTop + cardRect.top - headerBottom - 12;
+    beginScrollSync("article");
+    sidebar.scrollTo({ top: Math.max(0, targetTop), behavior: "smooth" });
+  }
+
+  function handleArticleScroll() {
+    if (isMobile() || currentPagePath !== getCurrentPagePath()) return;
+    if (isRecentUserScroll("comments") || (syncLockSource === "comments" && Date.now() < syncLockUntil)) return;
+    if (articleScrollSyncTimer) clearTimeout(articleScrollSyncTimer);
+    articleScrollSyncTimer = setTimeout(() => {
+      const annotation = findVisibleCommentForArticle();
+      if (!annotation) return;
+      const card = list.querySelector(`.annotation-card[data-annotation-id="${CSS.escape(annotation.id)}"]`);
+      if (!card) return;
+      const header = sidebar.querySelector(".annotation-header");
+      const headerBottom = header ? header.getBoundingClientRect().bottom : sidebar.getBoundingClientRect().top;
+      const cardRect = card.getBoundingClientRect();
+      const visible = cardRect.top >= headerBottom && cardRect.bottom <= sidebar.getBoundingClientRect().bottom;
+      if (annotation.id === lastArticleSyncedAnnotationId && visible) return;
+      lastArticleSyncedAnnotationId = annotation.id;
+      scrollCommentCardIntoView(annotation);
+    }, 100);
+  }
+
   sidebar.addEventListener("scroll", () => {
-    if (isMobile()) return;
+    if (isMobile() || currentPagePath !== getCurrentPagePath()) return;
+    if (isRecentUserScroll("article") || (syncLockSource === "article" && Date.now() < syncLockUntil)) return;
     if (commentScrollSyncTimer) clearTimeout(commentScrollSyncTimer);
     commentScrollSyncTimer = setTimeout(() => {
       const header = sidebar.querySelector(".annotation-header");
@@ -2636,8 +2723,23 @@
       if (!annotation || annotation.id === lastScrollSyncedAnnotationId) return;
       lastScrollSyncedAnnotationId = annotation.id;
       scrollToAnnotation(annotation);
-    }, 120);
+    }, 100);
   }, { passive: true });
+
+  sidebar.addEventListener("wheel", () => markUserScroll("comments"), { passive: true });
+  sidebar.addEventListener("touchstart", () => markUserScroll("comments"), { passive: true });
+  sidebar.addEventListener("pointerdown", () => markUserScroll("comments"), { passive: true });
+  window.addEventListener("wheel", event => { if (!sidebar.contains(event.target)) markUserScroll("article"); }, { passive: true });
+  window.addEventListener("touchstart", event => { if (!sidebar.contains(event.target)) markUserScroll("article"); }, { passive: true });
+  window.addEventListener("pointerdown", event => { if (!sidebar.contains(event.target)) markUserScroll("article"); }, { passive: true });
+  // Docsify's desktop Vue theme scrolls `.content` (a fixed panel), not window.
+  // Capture scroll events on descendants so article scrolling triggers sync too.
+  document.addEventListener("scroll", (event) => {
+    if (event.target === sidebar || sidebar.contains(event.target)) return;
+    handleArticleScroll();
+  }, { passive: true, capture: true });
+  // Keep window scrolling supported for layouts where the document is the scroller.
+  window.addEventListener("scroll", handleArticleScroll, { passive: true });
 
   window.annotationSystem = {
 
