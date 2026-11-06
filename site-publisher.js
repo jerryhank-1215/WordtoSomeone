@@ -43,6 +43,7 @@
   let articleMenuRenderPromise = null;
   let articleMenuSignature = "";
   let articleMenuHost = null;
+  let articleMenuObserver = null;
   let cachedArticles = null;
   let cachedArticlesRevision = -1;
   let articleDataRevision = 0;
@@ -336,6 +337,23 @@
     return articleMenuRenderPromise;
   }
 
+  function observeArticleMenuHost() {
+    if (articleMenuObserver || !document.body) return;
+    articleMenuObserver = new MutationObserver(() => {
+      const nav = document.querySelector(".sidebar-nav");
+      if (!nav) return;
+      const section = nav.querySelector("#uploaded-articles-menu");
+      // Docsify replaces or rebuilds its sidebar during route changes. Restore
+      // the uploaded-article list whenever its current nav host loses the list.
+      if (nav !== articleMenuHost || !section) {
+        articleMenuSignature = "";
+        renderArticleMenu();
+      }
+    });
+    articleMenuObserver.observe(document.body, { childList: true, subtree: true });
+    if (document.querySelector(".sidebar-nav")) renderArticleMenu();
+  }
+
   async function renderHomeArticleIndex() {
     const priorIndex = document.getElementById("home-article-index");
     const homeRoute = ["", "/"].includes(location.hash.replace(/^#/, "").split("?")[0]);
@@ -462,6 +480,7 @@
       renderHomeArticleIndex();
     });
   };
+  observeArticleMenuHost();
   window.$docsify = window.$docsify || {};
   window.$docsify.plugins = [...(window.$docsify.plugins || []), docsifyPlugin];
   subscribeToArticleChanges();
