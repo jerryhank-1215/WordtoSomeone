@@ -344,7 +344,7 @@
       return;
     }
 
-    const articleRoot = document.querySelector("#app .markdown-section");
+    const articleRoot = document.querySelector(".markdown-section:not(#home-article-index)");
     if (!articleRoot) return;
     let section = priorIndex;
     if (!section || !section.isConnected) {
@@ -457,7 +457,7 @@
     });
     hook.doneEach(() => {
       updateArticleHomeButton();
-      if (requestedSlug()) document.querySelector("#app .markdown-section h1")?.classList.add("published-article-title");
+      if (requestedSlug()) document.querySelector(".markdown-section h1")?.classList.add("published-article-title");
       renderArticleMenu();
       renderHomeArticleIndex();
     });
