@@ -124,6 +124,7 @@
   let currentReplies = [];
 
   let readReplyIds = new Set();
+  const notificationBaselines = new Set();
 
   let selectedRange = null;
 
@@ -727,46 +728,48 @@
 
 
 
-    const allNotificationIds = [...currentAnnotations, ...currentReplies].map((item) => item.id);
+    const allNotifications = [...currentAnnotations, ...currentReplies];
+    const allNotificationIds = allNotifications.map((item) => item.id);
+    let readError = null;
+    readReplyIds = new Set();
 
-    if (currentUserId && allNotificationIds.length) {
-
-      const { data: reads, error: readError } = await supabaseClient
-
-        .from("annotation_reply_reads")
-
-        .select("reply_id")
-
-        .eq("user_id", currentUserId)
-
-        .in("reply_id", allNotificationIds);
-
-      if (readError) {
+    if (currentUserId && allNotificationIds.length) {
+      const { data: reads, error } = await supabaseClient
+        .from("annotation_reply_reads")
+        .select("reply_id")
+        .eq("user_id", currentUserId)
+        .in("reply_id", allNotificationIds);
+      readError = error;
+      if (readError) {
         console.warn("[Annotations] Read receipts unavailable; comments will still be shown.", readError);
-        readReplyIds = new Set();
       } else {
         readReplyIds = new Set((reads || []).map((row) => row.reply_id));
       }
+    }
 
+    if (currentUserId && !readError) {
+      const baselineKey = `annotation-notification-baseline:${currentUserId}:${encodeURIComponent(pagePath)}`;
+      let baselineStored = notificationBaselines.has(baselineKey);
+      try {
+        baselineStored = baselineStored || localStorage.getItem(baselineKey) === "1";
+      } catch { /* Keep a per-session baseline if browser storage is disabled. */ }
 
-
-      // On first use, treat comments that already exist as history. Future
-
-      // top-level comments will then appear as unread notifications.
-
-      const hasCommentReadBaseline = currentAnnotations.some((item) => readReplyIds.has(item.id));
-
-      if (!readError && currentAnnotations.length && !hasCommentReadBaseline) {
-
-        await markRepliesRead(currentAnnotations);
-
-      }
-
-    } else {
-
-      readReplyIds = new Set();
-
-    }
+      // Existing read receipts indicate that this user has already established
+      // a baseline on another visit/device. Otherwise mark current rows as history.
+      const baselineExistsInDatabase = allNotifications.some((item) => readReplyIds.has(item.id));
+      if (baselineExistsInDatabase) baselineStored = true;
+      if (!baselineStored) {
+        await markRepliesRead(allNotifications);
+        const baselineSaved = allNotifications.every((item) => readReplyIds.has(item.id));
+        if (baselineSaved) {
+          notificationBaselines.add(baselineKey);
+          try { localStorage.setItem(baselineKey, "1"); } catch { /* The in-memory baseline still protects this page session. */ }
+        }
+      } else {
+        notificationBaselines.add(baselineKey);
+        try { localStorage.setItem(baselineKey, "1"); } catch { /* Database read receipts remain authoritative. */ }
+      }
+    }
 
 
 
