@@ -322,6 +322,7 @@ i am not your first choice but i will still be kind
 求你别离开我～～～
 
 （我也变得神圣了）
+
 <br>
 
 ## 关于高三
@@ -340,36 +341,211 @@ i am not your first choice but i will still be kind
 
 我住这里，海边，风景还行
 <br>
-<img src="map.png" width=600>
+<img src="pic/map.png" width=600>
+<br>
 <br>
 这是海边
 <br>
-<img src="shore 1.jpg" width=300>
+<img src="pic/shore 1.jpg" width=500>
 <br>
-<img src="shore 2.jpg" width=300>
 <br>
-<img src="shore 3.jpg" width=300>
+<img src="pic/shore 2.jpg" width=500>
+<br>
+<br>
+<img src="pic/shore 3.jpg" width=500>
+<br>
 <br>
 <br>
 
 去年还去看雪山了（Banff Park，还算有名吧）
 <br>
-<img src="mount 1.jpg" width=300>
+<img src="pic/mount 1.jpg" width=500>
 <br>
-<img src="mount 2.jpg" width=300>
 <br>
-<img src="mount 3.jpg" width=300>
+<img src="pic/mount 2.jpg" width=500>
 <br>
-<img src="mount 4.jpg" width=300>
 <br>
-<img src="town 1.jpg" width=300>
+<img src="pic/mount 3.jpg" width=500>
 <br>
-<img src="town 2.jpg" width=300>
-
+<br>
+<img src="pic/mount 4.jpg" width=500>
+<br>
+<br>
+<img src="pic/town 1.jpg" width=500>
+<br>
+<br>
+<img src="pic/town 2.jpg" width=500>
+<br>
 <br>
 
 这是我学校里
 <br>
-<img src="sakura.jpg" width=300>
+<br>
+<img src="pic/sakura.jpg" width=300>
+<br>
+<br>
 
+## 照片更新
+
+我理了理最近的相册，挑了几张看的过去的，当然没你好看（人怎么能美成这样呢）
+<br>
+没有温歌华市中心的照片，那里的繁华并不属于我
+White Rock是农村
+Vancouver是大都市
+
+<br>
+white rock 的海边，对面就是the usa
+<br>
+<img src="pic/海边/ashore (1).jpeg" width=500>
+<br>
+<img src="pic/海边/ashore (2).jpeg" width=500>
+<br>
+<img src="pic/海边/ashore (1).dng" width=500>(raw好像读不出来)
+<br>
+<br>
+<br>
+
+<br>
+<img src="pic/NBA.jpeg" width=500>
+<br>
+
+去年10月，人生第一次现场看，掘金赢了，虽然约老师上半场就满6犯离场了，但是约老师传了几个很屌的球
+猛龙队一个个的感觉三分都没我准，全是糙汉
+
+<br>
+<br>
+<br>
+<img src="pic/公园与花/park (1).jpeg" width=500>
+<br>
+<img src="pic/公园与花/park (2).jpeg" width=500>
+<br>
+<img src="pic/公园与花/park (3).jpeg" width=500>
+<br>
+上面两张不知道为啥看着很舒服，所以就放上来了，第二张看着很梦幻
+<br>
+图三是本地刀枪炮，黑社会惹不起，说是挺好吃的
+<br>
+
+
+<br>
+这个公园在这里(下面)，我2025年的暑假住在公园北边的下坠式双层大别墅里，外面望出去就是这公园，这个城市的名字叫Burnaby，周末经常来这里，这里有北美第二大商场Metrotown(左下)，上次就是在里面给你买的包
+<br>
+<img src="pic/map/map1.png" width=500>
+<br>
+<br>
+<br>
+<br>
+这是到达burnaby必须经过的一座大桥
+<br>
+<img src="pic/桥/bridge (1).jpeg" width=500>
+<br>
+<img src="pic/桥/bridge (2).jpeg" width=500>
+<br>
+<img src="pic/桥/bridge (3).jpeg" width=500>
+<br>
+我亲爱的弟弟伸出了他的贱手
+<br>
+<br>
+<br>
+<br>
+
+这是去年的枫叶，红的多有层次多有氛围（*没怎么拉饱和度和对比度）
+<br>
+<img src="pic/公园与花/park (4).jpeg" width=500>
+<br>
+<br>
+
+这是最近去公园玩（好不容易带了相机结果sd卡坏了）
+差点摔死在沟里，随便穿了一双鞋就去了，在瀑布边踩到了很滑的一块石头，差点把我爸和我都带下去，还好没逝
+这种自然公园里没信号，所以其实快逝了连告别电话都没得打
+<br>
+<img src="pic/公园与花/park (5).jpeg" width=500>
+<br>
+这是来到去xj前那个暑假拍的
+在维多利亚岛上面拍的
+打字打累了自己看吧  orz
+: D
+<br>
+<img src="pic/公园与花/park (6).jpeg" width=500>
+<br>
+<br>
+<br>
+
+<br>
+这是上次去Banff Park拍的<br>
+难得觉得自己的iPhone太强了
+<br>
+<img src="pic/雪山/snow (1).jpeg" width=1000>
+<br>
+<img src="pic/雪山/snow (2).jpeg">
+<br>
+<img src="pic/雪山/snow (3).jpeg">
+<br>
+<br>
+<br>
+
+
+<br>
+这些是路上随便拍的
+<br>
+<img src="pic/路上/on the way (1).jpeg" width=500>
+<br>
+911 930 sc，old money，龙姐能把这车当生日礼物送我吗  
+：D
+<br>
+<img src="pic/路上/on the way (2).jpeg" width=500>
+<br>
+<img src="pic/路上/on the way (3).jpeg" width=500>
+<br>
+<img src="pic/路上/on the way (4).jpeg" width=500>
+<br>
+<img src="pic/路上/on the way (5).jpeg" width=500>
+<br>
+它真的是一个感叹号
+<br>
+<img src="pic/路上/on the way (6).jpeg" width=500>
+<br>
+<br>
+<br>
+
+<br>
+一些飞机上拍到的风景
+<br>
+<img src="pic/飞机/plane (1).jpeg" width=500>
+<br>
+<img src="pic/飞机/plane (2).jpeg" width=500>
+<br>
+<img src="pic/飞机/plane (3).jpeg" width=500>
+<br>
+<img src="pic/飞机/plane (4).jpeg" width=500>
+<br>
+
+<br>
+最后，杭州
+<br>
+感觉印象里的西湖最美，实际见到其实没啥感觉（其实挺美的）
+<br>
+<img src="pic/杭州/hangzhou (1).png" width=500>
+<br>
+xj男厕所
+<br>
+<img src="pic/杭州/hangzhou (2).jpeg" width=500>
+<br>
+<img src="pic/杭州/hangzhou (3).jpeg" width=500>
+<br>
+<img src="pic/杭州/hangzhou (4).jpeg" width=500>
+<br>
+<img src="pic/杭州/hangzhou (5).jpeg" width=500>
+<br>
+<br>
+
+yj的diao图：
+<br>
+<img src="pic/杭州/hangzhou (1).jpeg" width=500>
+<br>
+<br>
+
+<br>
 有时候真希望你也能亲身看到
+<br>
+
