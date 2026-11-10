@@ -406,7 +406,7 @@ white rock 的海边，对面就是the usa
 <br>
 
 <br>
-<!-- NBA.jpeg 未在仓库中；上传到仓库根目录后可用：<img src="NBA.jpeg" width=500> -->
+<img src="NBA.jpeg" width=500>
 
 <br>
 
