@@ -205,11 +205,21 @@
 
     // 去除查询参数，保留当前文章路径
 
-    const routeAndQuery = hash.replace(/^#/, "");
-    const routeParts = routeAndQuery.split("?");
-    const route = routeParts[0] === "/published" && routeParts.length > 1
-      ? `${routeParts[0]}?${routeParts.slice(1).join("?")}`
-      : routeParts[0];
+    // Preserve the established annotation page_path while published articles
+    // use a distinct Docsify path per slug.
+    const routeAndQuery = hash.replace(/^#/, "");
+    const [routePath, query = ""] = routeAndQuery.split("?");
+    let route = routePath;
+    if (routePath === "/published") {
+      const slug = new URLSearchParams(query).get("slug");
+      if (slug) route = `/published?slug=${encodeURIComponent(slug)}`;
+    } else {
+      const publishedMatch = routePath.match(/^\/published\/([^/]+)$/);
+      if (publishedMatch) {
+        try { route = `/published?slug=${encodeURIComponent(decodeURIComponent(publishedMatch[1]))}`; }
+        catch { route = routePath; }
+      }
+    }
 
 
 

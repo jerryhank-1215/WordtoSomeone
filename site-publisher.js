@@ -199,11 +199,17 @@
     renderArticleMenu();
   });
 
-  // Article pages use a real static Docsify route, /published, with the article slug in its query.
+  // Give every article a distinct Docsify route so changing articles always
+  // triggers Docsify's route lifecycle. Keep the old query form readable.
   function requestedSlug() {
     const route = location.hash.replace(/^#\/?/, "");
     const [path, query = ""] = route.split("?");
-    return path === "published" ? new URLSearchParams(query).get("slug") : null;
+    if (path === "published") return new URLSearchParams(query).get("slug");
+    if (path.startsWith("published/")) {
+      try { return decodeURIComponent(path.slice("published/".length).split("/")[0]); }
+      catch { return null; }
+    }
+    return null;
   }
   function updateArticleHomeButton() {
     articleHomeButton.hidden = !requestedSlug();
@@ -297,7 +303,7 @@
           articles.forEach(articleItem => {
             const item = document.createElement("li");
             const link = document.createElement("a");
-            link.href = `#/published?slug=${encodeURIComponent(articleItem.slug)}`;
+            link.href = `#/published/${encodeURIComponent(articleItem.slug)}`;
             link.textContent = articleItem.title;
             item.appendChild(link);
             if (canDeleteArticle(articleItem, currentUser)) {
@@ -408,7 +414,7 @@
     articles.forEach(article => {
       const item = document.createElement("li");
       const link = document.createElement("a");
-      link.href = `#/published?slug=${encodeURIComponent(article.slug)}`;
+      link.href = `#/published/${encodeURIComponent(article.slug)}`;
       link.textContent = article.title;
       item.appendChild(link);
       articleList.appendChild(item);
@@ -538,6 +544,13 @@
       const images = [...document.getElementById("article-image").files];
       if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) throw new Error("短名请只用小写字母、数字和连字符。");
       if (!title || !body.trim()) throw new Error("请填写标题和 Markdown 正文。");
+      const { data: existingArticle, error: existingArticleError } = await supabaseClient
+        .from(ARTICLE_TABLE).select("created_by").eq("slug", slug).maybeSingle();
+      if (existingArticleError) throw existingArticleError;
+      if (existingArticle && !isSiteOwner(user) && existingArticle.created_by !== user.id) {
+        throw new Error("这个短名已被其他文章使用。请换一个新短名；你只能编辑自己创建的文章。");
+      }
+      const articleCreatorId = existingArticle?.created_by || user.id;
       if (images.length > MAX_ARTICLE_IMAGES) throw new Error(`一次最多添加 ${MAX_ARTICLE_IMAGES} 张图片。`);
       if (images.some(image => !image.type.startsWith("image/") || image.size > MAX_IMAGE_BYTES)) throw new Error("每张图片不能超过 10 MB。");
       if (images.reduce((total, image) => total + image.size, 0) > MAX_TOTAL_IMAGE_BYTES) throw new Error("图片总大小不能超过 50 MB。");
@@ -561,13 +574,13 @@
         }
       }
       uploadStatus.textContent = "正在保存文章…";
-      const { error: saveError } = await supabaseClient.from(ARTICLE_TABLE).upsert({ slug, title, content, created_by: user.id, updated_at: new Date().toISOString() }, { onConflict: "slug" });
+      const { error: saveError } = await supabaseClient.from(ARTICLE_TABLE).upsert({ slug, title, content, created_by: articleCreatorId, updated_at: new Date().toISOString() }, { onConflict: "slug" });
       if (saveError) throw saveError;
       invalidateArticleList();
       await renderArticleMenu();
       await renderHomeArticleIndex();
       uploadDialog.close();
-      location.hash = `/published?slug=${encodeURIComponent(slug)}`;
+      location.hash = `/published/${encodeURIComponent(slug)}`;
     } catch (error) {
       uploadStatus.textContent = `发布失败：${error.message}`;
     } finally {

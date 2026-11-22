@@ -66,7 +66,7 @@
       <input id="article-title" maxlength="160" required>
       <label for="article-slug">网址短名（小写字母、数字和连字符）</label>
       <input id="article-slug" pattern="[a-z0-9]+([a-z0-9-]*[a-z0-9])?" required>
-      <small>用于生成文章网址，例如 <code>#/published?slug=my-article</code>。再次使用相同短名会更新原文章。</small>
+      <small>用于生成文章网址，例如 <code>#/published/my-article</code>。再次使用相同短名会更新原文章。</small>
       <label for="article-markdown-file">选择已有 Markdown 文件（可选）</label>
       <input id="article-markdown-file" type="file" accept=".md,text/markdown,text/plain">
       <label for="article-content">Markdown 正文</label>
@@ -99,7 +99,10 @@
       name: 'Word from Fernando',
       repo: '',
       loadSidebar: true,
-      alias: { '/.*/_sidebar.md': '/_sidebar.md' },
+      alias: {
+        '/published/.+': '/published.md',
+        '/.*/_sidebar.md': '/_sidebar.md'
+      },
       subMaxLevel: 3,
       plugins: [function (hook) {
         hook.doneEach(function () { if (window.annotationSystem) window.annotationSystem.refresh(); });
@@ -108,8 +111,8 @@
   </script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/tus-js-client@4.3.1/dist/tus.min.js"></script>
-  <script src="./annotation.js?v=20261106-notifications-baseline1"></script>
-  <script src="./site-publisher.js?v=20261121-created-by1"></script>
+  <script src="./annotation.js?v=20261121-article-route1"></script>
+  <script src="./site-publisher.js?v=20261121-article-route2"></script>
   <script src="https://cdn.jsdelivr.net/npm/docsify@4"></script>
 </body>
 </html>
