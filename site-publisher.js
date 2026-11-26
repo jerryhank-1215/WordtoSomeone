@@ -5,6 +5,7 @@
   const OWNER_EMAIL = "jerryandhank1215@gmail.com";
   const PUBLISHER_EMAILS = new Set([OWNER_EMAIL, "35860833383@qq.com"]);
   const ARTICLE_TABLE = "site_articles";
+  const SONG_TABLE = "shared_songs";
   const IMAGE_BUCKET = "site-article-images";
   const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
   const MAX_ARTICLE_IMAGES = 5;
@@ -19,6 +20,7 @@
   const authOpen = document.getElementById("owner-auth-open");
   const logoutButton = document.getElementById("owner-auth-logout");
   const articleHomeButton = document.getElementById("article-list-home");
+  const songSharingOpen = document.getElementById("song-sharing-open");
   const uploadOpen = document.getElementById("article-upload-open");
   const authDialog = document.getElementById("owner-auth-dialog");
   const authForm = document.getElementById("owner-auth-form");
@@ -51,6 +53,8 @@
   let articleListRequest = null;
   let isPublishing = false;
   let articleRealtimeChannel = null;
+  let songRealtimeChannel = null;
+  let songRenderRevision = 0;
 
   function isSiteOwner(user) {
     return Boolean(user && !user.is_anonymous && user.email?.trim().toLowerCase() === OWNER_EMAIL);
@@ -197,6 +201,7 @@
     currentUser = session?.user || null;
     updateAccount(currentUser);
     renderArticleMenu();
+    renderSongSharingPanel();
   });
 
   // Give every article a distinct Docsify route so changing articles always
@@ -422,6 +427,216 @@
     section.appendChild(articleList);
   }
 
+  function parseNetEaseShareUrl(value) {
+    let url;
+    try { url = new URL(value.trim()); }
+    catch { throw new Error("请粘贴完整的网易云歌曲分享链接。"); }
+    const allowedHosts = new Set(["music.163.com", "y.music.163.com", "163cn.tv"]);
+    if (url.protocol !== "https:" || !allowedHosts.has(url.hostname.toLowerCase())) {
+      throw new Error("链接需为 https 网易云音乐链接（music.163.com、y.music.163.com 或 163cn.tv）。");
+    }
+    return url.href;
+  }
+
+  async function renderSongSharingPanel() {
+    const revision = ++songRenderRevision;
+    const currentRoute = location.hash.replace(/^#/, "").split("?")[0];
+    const isHome = currentRoute === "" || currentRoute === "/";
+    const existingPanel = document.getElementById("song-sharing-panel");
+    if (!isHome) {
+      existingPanel?.remove();
+      return;
+    }
+
+    const articleRoot = document.querySelector(".markdown-section:not(#home-article-index)");
+    if (!articleRoot) return;
+    const homeIndex = document.getElementById("home-article-index");
+    const insertAfter = homeIndex || articleRoot;
+    let panel = existingPanel;
+    if (!panel) {
+      panel = document.createElement("section");
+      panel.id = "song-sharing-panel";
+      panel.setAttribute("aria-labelledby", "song-sharing-title");
+    }
+    if (panel.previousElementSibling !== insertAfter) insertAfter.insertAdjacentElement("afterend", panel);
+
+    const previousDraft = {
+      title: panel.querySelector("#song-share-title")?.value || "",
+      url: panel.querySelector("#song-share-url")?.value || "",
+      note: panel.querySelector("#song-share-note")?.value || ""
+    };
+    panel.replaceChildren();
+    const heading = document.createElement("h2");
+    heading.id = "song-sharing-title";
+    heading.textContent = "歌曲分享";
+    panel.appendChild(heading);
+    const intro = document.createElement("p");
+    intro.className = "song-sharing-intro";
+    intro.textContent = "分享网易云歌曲链接和一句推荐语。歌曲由网易云打开或播放；这里不上传音乐文件。";
+    panel.appendChild(intro);
+
+    if (canPublish(currentUser)) {
+      const form = document.createElement("form");
+      form.className = "song-sharing-form";
+      const titleInput = document.createElement("input");
+      titleInput.id = "song-share-title";
+      titleInput.name = "title";
+      titleInput.type = "text";
+      titleInput.maxLength = 160;
+      titleInput.placeholder = "歌曲名（必填）";
+      titleInput.required = true;
+      titleInput.value = previousDraft.title;
+      const urlInput = document.createElement("input");
+      urlInput.id = "song-share-url";
+      urlInput.name = "url";
+      urlInput.type = "url";
+      urlInput.maxLength = 1000;
+      urlInput.placeholder = "粘贴网易云歌曲分享链接（必填）";
+      urlInput.required = true;
+      urlInput.value = previousDraft.url;
+      const noteInput = document.createElement("textarea");
+      noteInput.id = "song-share-note";
+      noteInput.name = "note";
+      noteInput.maxLength = 500;
+      noteInput.placeholder = "推荐语（可选，最多 500 字）";
+      noteInput.value = previousDraft.note;
+      const status = document.createElement("p");
+      status.className = "song-share-status";
+      status.setAttribute("aria-live", "polite");
+      const submit = document.createElement("button");
+      submit.className = "song-share-submit";
+      submit.type = "submit";
+      submit.textContent = "分享歌曲";
+      form.append(titleInput, urlInput, noteInput, status, submit);
+      form.addEventListener("submit", async event => {
+        event.preventDefault();
+        if (submit.disabled) return;
+        submit.disabled = true;
+        status.textContent = "正在保存…";
+        try {
+          if (!titleInput.value.trim()) throw new Error("请填写歌曲名。");
+          const songUrl = parseNetEaseShareUrl(urlInput.value);
+          const { error } = await supabaseClient.from(SONG_TABLE).insert({
+            title: titleInput.value.trim(),
+            song_url: songUrl,
+            note: noteInput.value.trim(),
+            created_by: currentUser.id
+          });
+          if (error) throw error;
+          document.querySelector("#song-sharing-panel .song-sharing-form")?.reset();
+          await renderSongSharingPanel();
+        } catch (error) {
+          status.textContent = `分享失败：${error.message}`;
+          submit.disabled = false;
+        }
+      });
+      panel.appendChild(form);
+    } else {
+      const signIn = document.createElement("div");
+      signIn.className = "song-sharing-intro";
+      signIn.textContent = "登录授权账号后可以分享歌曲。";
+      const signInButton = document.createElement("button");
+      signInButton.type = "button";
+      signInButton.textContent = "登录";
+      signInButton.addEventListener("click", () => authOpen.click());
+      signIn.appendChild(document.createTextNode(" "));
+      signIn.appendChild(signInButton);
+      panel.appendChild(signIn);
+    }
+
+    const list = document.createElement("div");
+    list.className = "song-sharing-list";
+    list.setAttribute("aria-live", "polite");
+    const loading = document.createElement("p");
+    loading.textContent = "正在加载歌曲…";
+    list.appendChild(loading);
+    panel.appendChild(list);
+    try {
+      const { data, error } = await supabaseClient
+        .from(SONG_TABLE)
+        .select("id,title,song_url,note,created_by,created_at")
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      if (revision !== songRenderRevision || !panel.isConnected) return;
+      list.replaceChildren();
+      const songs = data || [];
+      if (!songs.length) {
+        const empty = document.createElement("p");
+        empty.textContent = "还没有分享的歌曲。";
+        list.appendChild(empty);
+        return;
+      }
+      for (const song of songs) {
+        const card = document.createElement("article");
+        card.className = "song-card";
+        const title = document.createElement("h3");
+        title.textContent = song.title;
+        card.appendChild(title);
+        if (song.note) {
+          const note = document.createElement("p");
+          note.textContent = song.note;
+          card.appendChild(note);
+        }
+        const link = document.createElement("a");
+        try {
+          link.href = parseNetEaseShareUrl(song.song_url);
+          link.target = "_blank";
+          link.rel = "noopener noreferrer";
+          link.textContent = "在网易云音乐打开 ↗";
+        } catch {
+          link.href = "https://music.163.com/";
+          link.target = "_blank";
+          link.rel = "noopener noreferrer";
+          link.textContent = "网易云链接无效，打开网易云音乐 ↗";
+        }
+        card.appendChild(link);
+        const date = document.createElement("small");
+        date.textContent = song.created_at ? new Date(song.created_at).toLocaleDateString() : "";
+        card.appendChild(date);
+        if (isSiteOwner(currentUser) || (currentUser && song.created_by === currentUser.id)) {
+          const remove = document.createElement("button");
+          remove.className = "song-delete";
+          remove.type = "button";
+          remove.textContent = "删除";
+          remove.setAttribute("aria-label", `删除歌曲分享 ${song.title}`);
+          remove.addEventListener("click", async () => {
+            if (!window.confirm(`确定删除歌曲分享《${song.title}》吗？`)) return;
+            remove.disabled = true;
+            const { error: deleteError } = await supabaseClient.from(SONG_TABLE).delete().eq("id", song.id);
+            if (deleteError) {
+              remove.disabled = false;
+              window.alert(`删除失败：${deleteError.message}`);
+              return;
+            }
+            await renderSongSharingPanel();
+          });
+          card.appendChild(remove);
+        }
+        list.appendChild(card);
+      }
+    } catch (error) {
+      if (revision !== songRenderRevision || !panel.isConnected) return;
+      list.replaceChildren();
+      const message = document.createElement("p");
+      message.textContent = `暂时无法加载歌曲分享：${error.message}。请确认已在 Supabase 运行歌曲分享 SQL。`;
+      list.appendChild(message);
+    }
+  }
+
+  function subscribeToSongChanges() {
+    if (songRealtimeChannel) return;
+    songRealtimeChannel = supabaseClient
+      .channel("shared-songs-board")
+      .on("postgres_changes", { event: "*", schema: "public", table: SONG_TABLE }, () => {
+        renderSongSharingPanel();
+      })
+      .subscribe(status => {
+        if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+          console.warn("[Publisher] Song sharing live updates unavailable; the list will update on navigation.");
+        }
+      });
+  }
+
   async function removeArticleImages(slug, content) {
     const objectPaths = new Set();
     for (const match of content.matchAll(/https?:\/\/[^\s)]+/g)) {
@@ -496,14 +711,31 @@
       if (requestedSlug()) document.querySelector(".markdown-section h1")?.classList.add("published-article-title");
       renderArticleMenu();
       renderHomeArticleIndex();
+      renderSongSharingPanel();
     });
   };
   observeArticleMenuHost();
   window.$docsify = window.$docsify || {};
   window.$docsify.plugins = [...(window.$docsify.plugins || []), docsifyPlugin];
   subscribeToArticleChanges();
+  subscribeToSongChanges();
   window.addEventListener("hashchange", updateArticleHomeButton);
   updateArticleHomeButton();
+
+  songSharingOpen.addEventListener("click", () => {
+    const currentRoute = location.hash.replace(/^#/, "").split("?")[0];
+    if (currentRoute !== "" && currentRoute !== "/") location.hash = "/";
+    let attempts = 0;
+    const scrollToPanel = () => {
+      const panel = document.getElementById("song-sharing-panel");
+      if (panel) {
+        panel.scrollIntoView({ behavior: "smooth", block: "start" });
+      } else if (attempts++ < 40) {
+        setTimeout(scrollToPanel, 100);
+      }
+    };
+    scrollToPanel();
+  });
 
   uploadOpen.addEventListener("click", () => {
     uploadStatus.textContent = "";

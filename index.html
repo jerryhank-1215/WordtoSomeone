@@ -20,8 +20,24 @@
     .owner-dialog [role="group"] { display: flex; gap: 8px; }
     .owner-dialog button { padding: 8px 12px; cursor: pointer; }
     .owner-dialog p, .owner-dialog small { overflow-wrap: anywhere; line-height: 1.5; }
+    #song-sharing-panel { box-sizing: border-box; width: min(100%, 900px); margin: 2rem auto; padding: clamp(1rem, 3vw, 2rem); border: 1px solid #e4d8cc; border-radius: 18px; background: linear-gradient(145deg, #fffaf4, #f4f7f4); color: #29342f; }
+    #song-sharing-panel h2 { margin: 0 0 .4rem; color: #315b50; font-family: Georgia, serif; }
+    #song-sharing-panel .song-sharing-intro { margin: 0 0 1.2rem; color: #68756e; }
+    #song-sharing-panel .song-sharing-form { display: grid; gap: .65rem; margin: 0 0 1.4rem; }
+    #song-sharing-panel input, #song-sharing-panel textarea { box-sizing: border-box; width: 100%; border: 1px solid #d8ded9; border-radius: 9px; padding: .7rem .8rem; background: #fff; color: #26312c; font: inherit; }
+    #song-sharing-panel textarea { min-height: 72px; resize: vertical; }
+    #song-sharing-panel button { cursor: pointer; border: 0; border-radius: 9px; padding: .65rem .95rem; background: #426f60; color: #fff; font: inherit; }
+    #song-sharing-panel button:disabled { cursor: wait; opacity: .6; }
+    #song-sharing-panel .song-share-submit { justify-self: start; }
+    #song-sharing-panel .song-sharing-list { display: grid; gap: .8rem; }
+    #song-sharing-panel .song-card { display: flex; flex-direction: column; align-items: flex-start; gap: .45rem; border: 1px solid #e5e9e5; border-radius: 12px; padding: 1rem; background: rgba(255,255,255,.88); }
+    #song-sharing-panel .song-card h3 { margin: 0; font: 600 1.08rem/1.4 system-ui, sans-serif; }
+    #song-sharing-panel .song-card p { margin: .2rem 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+    #song-sharing-panel .song-card a { color: #236454; overflow-wrap: anywhere; }
+    #song-sharing-panel .song-card small { color: #77817b; }
+    #song-sharing-panel .song-delete { align-self: flex-end; background: #875a53; }
     #app .markdown-section h1.published-article-title { display: block; box-sizing: border-box; width: calc(100% - 1rem); margin: 0 0 1.2em 1rem !important; padding: .15em 0 .15em .7em !important; border-left: 4px solid #42b983; overflow-wrap: anywhere; }
-    @media (max-width: 768px) { #owner-toolbar { top: 6px; right: 72px; gap: 4px; padding: 4px; } #owner-account-email { display: none; } #app .markdown-section h1.published-article-title { width: calc(100% - .25rem); margin-left: .25rem !important; padding-left: .4em !important; } }
+    @media (max-width: 768px) { #owner-toolbar { top: 6px; right: 72px; gap: 4px; padding: 4px; } #owner-account-email { display: none; } #app .markdown-section h1.published-article-title { width: calc(100% - .25rem); margin-left: .25rem !important; padding-left: .4em !important; } #song-sharing-panel { margin: 1.2rem auto; border-radius: 13px; } }
   </style>
 </head>
 <body>
@@ -29,6 +45,7 @@
   <div id="owner-toolbar" aria-label="Owner controls">
     <span id="owner-account-email">Not signed in</span>
     <button type="button" id="article-list-home" hidden title="返回首页和文章目录">文章目录</button>
+    <button type="button" id="song-sharing-open" title="前往歌曲分享区">歌曲</button>
     <button type="button" id="owner-auth-open">Login / Register</button>
     <button type="button" id="owner-auth-logout" hidden>Log out</button>
     <button type="button" id="article-upload-open" hidden>发布文章</button>
@@ -112,7 +129,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/tus-js-client@4.3.1/dist/tus.min.js"></script>
   <script src="./annotation.js?v=20261121-article-route1"></script>
-  <script src="./site-publisher.js?v=20261121-article-route2"></script>
+  <script src="./site-publisher.js?v=20261125-song-share1"></script>
   <script src="https://cdn.jsdelivr.net/npm/docsify@4"></script>
 </body>
 </html>
